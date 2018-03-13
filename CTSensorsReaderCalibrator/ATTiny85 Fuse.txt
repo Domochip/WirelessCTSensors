@@ -1,0 +1,13 @@
+http://www.engbedded.com/fusecalc/
+
+(default with RESET disabled, PLL clock +64ms and EESAVE(preserve EEPROM))
+Low : 0xF1
+High : 0xD7
+Extended : 0xFF
+
+using Arduino as ISP
+C:\Users\me\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino8/bin/avrdude -CC:\Users\J6B\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino8/etc/avrdude.conf -v -v -v -v -pattiny85 -cstk500v1 -PCOM2 -b19200 -e -Uefuse:w:0xff:m -Uhfuse:w:0xD7:m -Ulfuse:w:0xf1:m 
+
+
+Read : 
+C:\Users\me\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino8/bin/avrdude -CC:\Users\J6B\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino8/etc/avrdude.conf -v -v -v -v -pattiny85 -cstk500v1 -PCOM2 -b19200 -e -Uefuse:r:-:i -Uhfuse:r:-:i -Ulfuse:r:-:i 
