@@ -68,4 +68,13 @@ void CTSensor::SetCounterFromRemote(unsigned long remoteCounter) {
 bool CTSensor::GetReady() {
   return _counterReady;
 }
-
+//------------------------------------------
+// Function to fully reinitialize this CTSensor
+void CTSensor::Reset() {
+  _firstReadDone = false;
+  _currentI = 0.0;
+  _avgI = 0.0;
+  decimalLeft = 0;
+  _counter = 0;
+  _counterReady = false;
+}

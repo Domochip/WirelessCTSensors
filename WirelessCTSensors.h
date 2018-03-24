@@ -6,9 +6,12 @@
 #include <ESPAsyncWebServer.h>
 
 #include "Main.h"
+#include "src\Utils.h"
+#include "src\Base.h"
+
+#include <ESP8266HTTPClient.h>
 #include "CTSensor.h"
 #include "SimpleTimer.h"
-#include "src\Utils.h"
 
 
 //define the number of CTSensor
@@ -16,71 +19,47 @@
 
 const char appDataPredefPassword[] PROGMEM = "ewcXoCt4HHjZUvY1";
 
-class AppData1 {
+class WebCTSensors : public Application
+{
+private:
+  float clampRatios[3] = {0.0, 0.0, 0.0};
+  float noiseCancellation[3] = {0.0, 0.0, 0.0};
 
-  public:
-    float clampRatios[3] = {0.0, 0.0, 0.0};
-    float noiseCancellation[3] = {0.0, 0.0, 0.0};
+  typedef struct
+  {
+    bool enabled = false;
+    bool tls = false;
+    char hostname[64 + 1] = {0};
+    char apiKey[48 + 1] = {0};
+    char commandType[10 + 1] = {0};
+    int clampIds[3] = {0, 0, 0};
 
-    typedef struct {
-      bool enabled = false;
-      bool tls = false;
-      char hostname[64 + 1] = {0};
-      char apiKey[48 + 1] = {0};
-      char commandType[10 + 1] = {0};
-      int clampIds[3] = {0, 0, 0};
+    byte fingerPrint[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  } Jeedom;
+  Jeedom jeedom;
 
-      byte fingerPrint[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    } Jeedom;
-    Jeedom jeedom;
+  CTSensor _ctSensors[NUMBER_OF_CTSENSOR];
+  SimpleTimer _sendTimer;
+  char serialBuffer[12] = {0};
 
-    void SetDefaultValues() {
+  String _requests[NUMBER_OF_CTSENSOR];
+  int _requestResults[NUMBER_OF_CTSENSOR];
 
-      clampRatios[0] = 30.0;
-      clampRatios[1] = 30.0;
-      clampRatios[2] = 30.0;
+  void SendTimerTick();
 
-      noiseCancellation[0] = 0.0;
-      noiseCancellation[1] = 0.0;
-      noiseCancellation[2] = 0.0;
+  void SetConfigDefaultValues();
+  void ParseConfigJSON(JsonObject &root);
+  bool ParseConfigWebRequest(AsyncWebServerRequest *request);
+  String GenerateConfigJSON(bool forSaveFile);
+  String GenerateStatusJSON();
+  bool AppInit(bool reInit);
+  void AppInitWebServer(AsyncWebServer &server, bool &shouldReboot, bool &pauseApplication);
+  void AppRun();
 
-      jeedom.enabled = false;
-      jeedom.tls = false;
-      jeedom.hostname[0] = 0;
-      jeedom.apiKey[0] = 0;
-      jeedom.commandType[0] = 0;
-      jeedom.clampIds[0] = 0;
-      jeedom.clampIds[1] = 0;
-      jeedom.clampIds[2] = 0;
-      memset(jeedom.fingerPrint, 0, 20);
-    }
+  String GetStatus();
 
-    String GetJSON();
-
-    bool SetFromParameters(AsyncWebServerRequest* request, AppData1 &tempAppData);
-};
-
-class WebCTSensors {
-
-  private:
-    AppData1* _appData1;
-    CTSensor _ctSensors[NUMBER_OF_CTSENSOR];
-    SimpleTimer _sendTimer;
-
-    char serialBuffer[12] = {0};
-
-    //for returning Status
-    String _requests[NUMBER_OF_CTSENSOR];
-    int _requestResults[NUMBER_OF_CTSENSOR];
-
-    void SendTimerTick();
-    String GetStatus();
-    void Process(char c);
-
-  public:
-    void Init(AppData1 &appData1);
-    void InitWebServer(AsyncWebServer &server);
-    void Run();
+public:
+  WebCTSensors(char appId, String fileName);
 };
 
 #endif

@@ -29,6 +29,7 @@ class CTSensor {
     unsigned long GetCounter(); //used for status only
     void SetCounterFromRemote(unsigned long remoteCounter);
     bool GetReady();
+    void Reset();
 };
 
 #endif
