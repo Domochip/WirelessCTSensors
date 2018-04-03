@@ -22,7 +22,7 @@
 #define APPLICATION1_DESC "DomoChip Wireless CT Sensors"
 #define APPLICATION1_CLASS WebCTSensors
 
-#define VERSION_NUMBER "3.1.4"
+#define VERSION_NUMBER "3.1.5"
 
 #define DEFAULT_AP_SSID "WirelessCTSensors"
 #define DEFAULT_AP_PSK "PasswordCT"

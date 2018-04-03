@@ -10,48 +10,60 @@ void WebCTSensors::SendTimerTick()
   for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
   {
 
-    //if CTSensor is not ready, then request for initial value in Jeedom
-    if (clampRatios[i] != 0.0 && !_ctSensors[i].GetReady() && jeedom.clampIds[i] != 0)
+    //if CTSensor is not ready, then request for initial value in Home Automation
+    if (clampRatios[i] != 0.0 && !_ctSensors[i].GetReady() && ha.clampIds[i] != 0)
     {
 
-      _requests[i] = F("&type=cmd&id=");
-      _requests[i] += jeedom.clampIds[i];
-
       String completeURI;
-      completeURI = completeURI + F("http") + (jeedom.tls ? F("s") : F("")) + F("://") + jeedom.hostname + F("/core/api/jeeApi.php?apikey=") + jeedom.apiKey + _requests[i];
 
+      switch (ha.enabled)
+      {
+      case 1:
+        _requests[i] = F("&type=cmd&id=");
+        _requests[i] += ha.clampIds[i];
+        completeURI = completeURI + F("http") + (ha.tls ? F("s") : F("")) + F("://") + ha.hostname + F("/core/api/jeeApi.php?apikey=") + ha.jeedom.apiKey + _requests[i];
+        break;
+      }
       //create HTTP request
       HTTPClient http;
 
       //if tls is enabled or not, we need to provide certificate fingerPrint
-      if (!jeedom.tls)
+      if (!ha.tls)
         http.begin(completeURI);
       else
       {
         char fpStr[41];
-        http.begin(completeURI, Utils::FingerPrintA2S(fpStr, jeedom.fingerPrint));
+        http.begin(completeURI, Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
       }
 
       _requestResults[i] = http.GET();
       if (_requestResults[i] == 200)
       {
-        String payload = http.getString();
         uint16_t units = 0;
         uint16_t thousands = 0;
         uint16_t millions = 0;
         uint16_t billions = 0;
+        unsigned long payloadValue = 0;
 
-        yield();
-        units = payload.substring(payload.length() >= 3 ? payload.length() - 3 : 0).toInt();
-        if (payload.length() > 3)
-          thousands = payload.substring(payload.length() >= 6 ? payload.length() - 6 : 0, payload.length() - 3).toInt();
-        if (payload.length() > 6)
-          millions = payload.substring(payload.length() >= 9 ? payload.length() - 9 : 0, payload.length() - 6).toInt();
-        if (payload.length() > 9)
-          billions = payload.substring(payload.length() >= 12 ? payload.length() - 12 : 0, payload.length() - 9).toInt();
+        switch (ha.enabled)
+        {
+        case 1:
+          String payload = http.getString();
+
+          yield();
+          units = payload.substring(payload.length() >= 3 ? payload.length() - 3 : 0).toInt();
+          if (payload.length() > 3)
+            thousands = payload.substring(payload.length() >= 6 ? payload.length() - 6 : 0, payload.length() - 3).toInt();
+          if (payload.length() > 6)
+            millions = payload.substring(payload.length() >= 9 ? payload.length() - 9 : 0, payload.length() - 6).toInt();
+          if (payload.length() > 9)
+            billions = payload.substring(payload.length() >= 12 ? payload.length() - 12 : 0, payload.length() - 9).toInt();
+          break;
+        }
+
         http.end();
 
-        unsigned long payloadValue = billions;
+        payloadValue = billions;
         payloadValue = (payloadValue * 1000) + millions;
         payloadValue = (payloadValue * 1000) + thousands;
         payloadValue = (payloadValue * 1000) + units;
@@ -60,24 +72,30 @@ void WebCTSensors::SendTimerTick()
       }
     }
 
-    if (clampRatios[i] != 0.0 && _ctSensors[i].GetReady() && jeedom.clampIds[i] != 0)
+    //this time ctSensor is ready
+    if (clampRatios[i] != 0.0 && _ctSensors[i].GetReady() && ha.clampIds[i] != 0)
     {
 
-      _requests[i] = String(F("&type=")) + jeedom.commandType + F("&id=") + jeedom.clampIds[i] + F("&value=") + _ctSensors[i].GetCounterUpdated();
-
       String completeURI;
-      completeURI = completeURI + F("http") + (jeedom.tls ? F("s") : F("")) + F("://") + jeedom.hostname + F("/core/api/jeeApi.php?apikey=") + jeedom.apiKey + _requests[i];
+
+      switch (ha.enabled)
+      {
+      case 1:
+        _requests[i] = String(F("&type=")) + ha.jeedom.commandType + F("&id=") + ha.clampIds[i] + F("&value=") + _ctSensors[i].GetCounterUpdated();
+        completeURI = completeURI + F("http") + (ha.tls ? F("s") : F("")) + F("://") + ha.hostname + F("/core/api/jeeApi.php?apikey=") + ha.jeedom.apiKey + _requests[i];
+        break;
+      }
 
       //create HTTP request
       HTTPClient http;
 
       //if tls is enabled or not, we need to provide certificate fingerPrint
-      if (!jeedom.tls)
+      if (!ha.tls)
         http.begin(completeURI);
       else
       {
         char fpStr[41];
-        http.begin(completeURI, Utils::FingerPrintA2S(fpStr, jeedom.fingerPrint));
+        http.begin(completeURI, Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
       }
 
       _requestResults[i] = http.GET();
@@ -98,20 +116,39 @@ void WebCTSensors::SetConfigDefaultValues()
   noiseCancellation[1] = 0.0;
   noiseCancellation[2] = 0.0;
 
-  jeedom.enabled = false;
-  jeedom.tls = false;
-  jeedom.hostname[0] = 0;
-  jeedom.apiKey[0] = 0;
-  jeedom.commandType[0] = 0;
-  jeedom.clampIds[0] = 0;
-  jeedom.clampIds[1] = 0;
-  jeedom.clampIds[2] = 0;
-  memset(jeedom.fingerPrint, 0, 20);
+  ha.enabled = false;
+  ha.tls = false;
+  memset(ha.fingerPrint, 0, 20);
+  ha.hostname[0] = 0;
+  ha.clampIds[0] = 0;
+  ha.clampIds[1] = 0;
+  ha.clampIds[2] = 0;
+  ha.jeedom.apiKey[0] = 0;
+  ha.jeedom.commandType[0] = 0;
 };
 //------------------------------------------
 //Parse JSON object into configuration properties
 void WebCTSensors::ParseConfigJSON(JsonObject &root)
 {
+  //Retrocompatibility block to be removed after v3.1.5 --
+  if (root["je"].success())
+    ha.enabled = root["je"] ? 1 : 0;
+  if (root["jt"].success())
+    ha.tls = root["jt"];
+  if (root["jh"].success())
+    strlcpy(ha.hostname, root["jh"], sizeof(ha.hostname));
+  if (root["ct"].success())
+    strlcpy(ha.jeedom.commandType, root["ct"], sizeof(ha.jeedom.commandType));
+  if (root["c1"].success())
+    ha.clampIds[0] = root["c1"];
+  if (root["c2"].success())
+    ha.clampIds[1] = root["c2"];
+  if (root["c3"].success())
+    ha.clampIds[2] = root["c3"];
+  if (root["jfp"].success())
+    Utils::FingerPrintS2A(ha.fingerPrint, root["jfp"]);
+  // --
+
   if (root["cr1"].success())
     clampRatios[0] = root["cr1"];
   if (root["cnc1"].success())
@@ -125,24 +162,25 @@ void WebCTSensors::ParseConfigJSON(JsonObject &root)
   if (root["cnc3"].success())
     noiseCancellation[2] = root["cnc3"];
 
-  if (root["je"].success())
-    jeedom.enabled = root["je"];
-  if (root["jt"].success())
-    jeedom.tls = root["jt"];
-  if (root["jh"].success())
-    strlcpy(jeedom.hostname, root["jh"], sizeof(jeedom.hostname));
+  if (root[F("hae")].success())
+    ha.enabled = root[F("hae")];
+  if (root[F("hatls")].success())
+    ha.tls = root[F("hatls")];
+  if (root[F("hah")].success())
+    strlcpy(ha.hostname, root["hah"], sizeof(ha.hostname));
+  if (root[F("hacid1")].success())
+    ha.clampIds[0] = root[F("hacid1")];
+  if (root[F("hacid2")].success())
+    ha.clampIds[1] = root[F("hacid2")];
+  if (root[F("hacid3")].success())
+    ha.clampIds[2] = root[F("hacid3")];
+  if (root["hafp"].success())
+    Utils::FingerPrintS2A(ha.fingerPrint, root["hafp"]);
+
   if (root["ja"].success())
-    strlcpy(jeedom.apiKey, root["ja"], sizeof(jeedom.apiKey));
-  if (root["ct"].success())
-    strlcpy(jeedom.commandType, root["ct"], sizeof(jeedom.commandType));
-  if (root["c1"].success())
-    jeedom.clampIds[0] = root["c1"];
-  if (root["c2"].success())
-    jeedom.clampIds[1] = root["c2"];
-  if (root["c3"].success())
-    jeedom.clampIds[2] = root["c3"];
-  if (root["jfp"].success())
-    Utils::FingerPrintS2A(jeedom.fingerPrint, root["jfp"]);
+    strlcpy(ha.jeedom.apiKey, root["ja"], sizeof(ha.jeedom.apiKey));
+  if (root["jct"].success())
+    strlcpy(ha.jeedom.commandType, root["jct"], sizeof(ha.jeedom.commandType));
 };
 //------------------------------------------
 //Parse HTTP POST parameters in request into configuration properties
@@ -163,38 +201,45 @@ bool WebCTSensors::ParseConfigWebRequest(AsyncWebServerRequest *request)
   if (request->hasParam(F("cnc3"), true))
     noiseCancellation[2] = request->getParam(F("cnc3"), true)->value().toFloat();
 
-  if (request->hasParam(F("je"), true))
-    jeedom.enabled = (request->getParam(F("je"), true)->value() == F("on"));
-  else
-    jeedom.enabled = false;
-  if (request->hasParam(F("jt"), true))
-    jeedom.tls = (request->getParam(F("jt"), true)->value() == F("on"));
-  else
-    jeedom.tls = false;
-  if (request->hasParam(F("jh"), true) && request->getParam(F("jh"), true)->value().length() < sizeof(jeedom.hostname))
-    strcpy(jeedom.hostname, request->getParam(F("jh"), true)->value().c_str());
-  //put apiKey into temporary one for predefpassword
-  if (request->hasParam(F("ja"), true) && request->getParam(F("ja"), true)->value().length() < sizeof(tempApiKey))
-    strcpy(tempApiKey, request->getParam(F("ja"), true)->value().c_str());
+  if (request->hasParam(F("hae"), true))
+    ha.enabled = request->getParam(F("hae"), true)->value().toInt();
 
-  if (request->hasParam(F("ct"), true))
-    strncpy(jeedom.commandType, request->getParam(F("ct"), true)->value().c_str(), sizeof(jeedom.commandType) - 1);
-  if (request->hasParam(F("c1"), true))
-    jeedom.clampIds[0] = request->getParam(F("c1"), true)->value().toInt();
-  if (request->hasParam(F("c2"), true))
-    jeedom.clampIds[1] = request->getParam(F("c2"), true)->value().toInt();
-  if (request->hasParam(F("c3"), true))
-    jeedom.clampIds[2] = request->getParam(F("c3"), true)->value().toInt();
+  //if an home Automation system is enabled then get common param
+  if (ha.enabled)
+  {
+    if (request->hasParam(F("hatls"), true))
+      ha.tls = (request->getParam(F("hatls"), true)->value() == F("on"));
+    else
+      ha.tls = false;
+    if (request->hasParam(F("hah"), true) && request->getParam(F("hah"), true)->value().length() < sizeof(ha.hostname))
+      strcpy(ha.hostname, request->getParam(F("hah"), true)->value().c_str());
+    if (request->hasParam(F("hacid1"), true))
+      ha.clampIds[0] = request->getParam(F("hacid1"), true)->value().toInt();
+    if (request->hasParam(F("hacid2"), true))
+      ha.clampIds[1] = request->getParam(F("hacid2"), true)->value().toInt();
+    if (request->hasParam(F("hacid3"), true))
+      ha.clampIds[2] = request->getParam(F("hacid3"), true)->value().toInt();
+    if (request->hasParam(F("hafp"), true))
+      Utils::FingerPrintS2A(ha.fingerPrint, request->getParam(F("hafp"), true)->value().c_str());
+  }
 
-  if (request->hasParam(F("jfp"), true))
-    Utils::FingerPrintS2A(jeedom.fingerPrint, request->getParam(F("jfp"), true)->value().c_str());
-
-  //check for previous apiKey (there is a predefined special password that mean to keep already saved one)
-  if (strcmp_P(tempApiKey, appDataPredefPassword))
-    strcpy(jeedom.apiKey, tempApiKey);
-
-  if (!jeedom.hostname[0] || !jeedom.apiKey[0])
-    jeedom.enabled = false;
+  //Now get specific param
+  switch (ha.enabled)
+  {
+  case 1: //Jeedom
+    char tempApiKey[48 + 1];
+    //put apiKey into temporary one for predefpassword
+    if (request->hasParam(F("ja"), true) && request->getParam(F("ja"), true)->value().length() < sizeof(tempApiKey))
+      strcpy(tempApiKey, request->getParam(F("ja"), true)->value().c_str());
+    if (request->hasParam(F("jct"), true))
+      strncpy(ha.jeedom.commandType, request->getParam(F("jct"), true)->value().c_str(), sizeof(ha.jeedom.commandType) - 1);
+    //check for previous apiKey (there is a predefined special password that mean to keep already saved one)
+    if (strcmp_P(tempApiKey, appDataPredefPassword))
+      strcpy(ha.jeedom.apiKey, tempApiKey);
+    if (!ha.hostname[0] || !ha.jeedom.apiKey[0])
+      ha.enabled = 0;
+    break;
+  }
 
   return true;
 };
@@ -212,21 +257,22 @@ String WebCTSensors::GenerateConfigJSON(bool forSaveFile = false)
   gc = gc + F(",\"cnc2\":") + noiseCancellation[1];
   gc = gc + F(",\"cnc3\":") + noiseCancellation[2];
 
-  gc = gc + F(",\"je\":") + (jeedom.enabled ? true : false);
-  gc = gc + F(",\"jt\":") + (jeedom.tls ? true : false);
-  gc = gc + F(",\"jh\":\"") + jeedom.hostname + '"';
+  gc = gc + F(",\"hae\":") + ha.enabled;
+  gc = gc + F(",\"hatls\":") + ha.tls;
+  gc = gc + F(",\"hah\":\"") + ha.hostname + '"';
+  gc = gc + F(",\"hacid1\":") + ha.clampIds[0];
+  gc = gc + F(",\"hacid2\":") + ha.clampIds[1];
+  gc = gc + F(",\"hacid3\":") + ha.clampIds[2];
+  gc = gc + F(",\"hafp\":\"") + Utils::FingerPrintA2S(fpStr, ha.fingerPrint, forSaveFile ? 0 : ':') + '"';
+
   if (forSaveFile)
-    gc = gc + F(",\"ja\":\"") + jeedom.apiKey + '"';
+  {
+    if (ha.enabled == 1)
+      gc = gc + F(",\"ja\":\"") + ha.jeedom.apiKey + '"';
+  }
   else
     gc = gc + F(",\"ja\":\"") + (__FlashStringHelper *)appDataPredefPassword + '"'; //predefined special password (mean to keep already saved one)
-  gc = gc + F(",\"ct\":\"") + jeedom.commandType + '"';
-  gc = gc + F(",\"c1\":") + jeedom.clampIds[0];
-  gc = gc + F(",\"c2\":") + jeedom.clampIds[1];
-  gc = gc + F(",\"c3\":") + jeedom.clampIds[2];
-  if (forSaveFile)
-    gc = gc + F(",\"jfp\":\"") + Utils::FingerPrintA2S(fpStr, jeedom.fingerPrint) + '"';
-  else
-    gc = gc + F(",\"jfp\":\"") + Utils::FingerPrintA2S(fpStr, jeedom.fingerPrint, ':') + '"';
+  gc = gc + F(",\"jct\":\"") + ha.jeedom.commandType + '"';
 
   gc = gc + '}';
 
@@ -247,7 +293,7 @@ String WebCTSensors::GenerateStatusJSON()
   gs = gs + F(",\"c1\":") + _ctSensors[0].GetCounter();
   gs = gs + F(",\"c2\":") + _ctSensors[1].GetCounter();
   gs = gs + F(",\"c3\":") + _ctSensors[2].GetCounter();
-  if (jeedom.enabled)
+  if (ha.enabled)
     for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
     {
       gs = gs + F(",\"lr") + (i + 1) + F("\":\"") + _requests[i] + '"';
@@ -277,7 +323,7 @@ bool WebCTSensors::AppInit(bool reInit)
   if (reInit && _sendTimer.getNumTimers())
     _sendTimer.deleteTimer(0);
 
-  if (jeedom.enabled)
+  if (ha.enabled)
     _sendTimer.setInterval(SEND_PERIOD, [this]() {
       this->SendTimerTick();
     });
@@ -335,7 +381,7 @@ void WebCTSensors::AppRun()
   }
 
   //Run sendTimer
-  if (jeedom.enabled)
+  if (ha.enabled)
     _sendTimer.run();
 }
 

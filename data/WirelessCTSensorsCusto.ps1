@@ -86,46 +86,58 @@ $templatesWithCustoFiles=@{
             <input type='number' id='cnc3' name='cnc3' step='0.001'/>
         </div>
 
+        <h3 class="content-subhead">Home Automation</h3>
+
         <div class="pure-control-group">
-            <label for="je" class="pure-checkbox">Jeedom Upload</label>
-            <input id='je' name='je' type="checkbox">
+            <label for="hae">Type</label>
+            <select id='hae' name='hae'>
+                <option value="0">None</option>
+                <option value="1">Jeedom</option>
+            </select>
         </div>
-        <div id='j' style='display:none'>
+
+
+        <div id='ha' style='display:none'>
             <div class="pure-control-group">
-                <label for="jt">SSL/TLS</label>
-                <input type='checkbox' id='jt' name='jt'>
+                <label for="hatls">SSL/TLS</label>
+                <input type='checkbox' id='hatls' name='hatls'>
             </div>
             <div class="pure-control-group">
-                <label for="jh">Hostname</label>
-                <input type='text' id='jh' name='jh' maxlength='64' pattern='[A-Za-z0-9-.]+' size='50' title='DNS name or IP of the Jeedom server'>
-                <span class="pure-form-message-inline">(Jeedom Hostname should match with certificate name if SSL/TLS is enabled)</span>
+                <label for="hah">Hostname</label>
+                <input type='text' id='hah' name='hah' maxlength='64' pattern='[A-Za-z0-9-.]+' size='50' title='DNS name or IP of the Jeedom server'>
+                <span class="pure-form-message-inline">(Hostname should match with certificate name if SSL/TLS is enabled)</span>
             </div>
-            <div class="pure-control-group">
-                <label for="ja">ApiKey</label>
-                <input type='password' id='ja' name='ja' maxlength='48' pattern='[A-Za-z0-9-.]+' size=50 title='APIKey from Jeedom configuration webpage'>
+
+            <div id='j' style='display:none'>
+
+                <div class="pure-control-group">
+                    <label for="ja">ApiKey</label>
+                    <input type='password' id='ja' name='ja' maxlength='48' pattern='[A-Za-z0-9-.]+' size=50 title='APIKey from Jeedom configuration webpage'>
+                </div>
             </div>
+
             <div class="pure-control-group">
-                <label for="ct">CommandType</label>
-                <input type='text' id='ct' name='ct' maxlength='10'>
+                <label for="jct">CommandType</label>
+                <input type='text' id='jct' name='jct' maxlength='10'>
                 <span class="pure-form-message-inline">(Virtual = 'virtual')</span>
             </div>
             <div class="pure-control-group">
-                <label for="c1">Clamp1 Id</label>
-                <input type='number' id='c1' name='c1' min='0' max='65535'>
+                <label for="hacid1">Clamp1 Id</label>
+                <input type='number' id='hacid1' name='hacid1' min='0' max='65535'>
                 <span class="pure-form-message-inline">(Jeedom Command Id) (0 means disabled)</span>
             </div>
             <div class="pure-control-group">
-                <label for="c2">Clamp2 Id</label>
-                <input type='number' id='c2' name='c2' min='0' max='65535'>
+                <label for="hacid2">Clamp2 Id</label>
+                <input type='number' id='hacid2' name='hacid2' min='0' max='65535'>
             </div>
             <div class="pure-control-group">
-                <label for="c3">Clamp3 Id</label>
-                <input type='number' id='c3' name='c3' min='0' max='65535'>
+                <label for="hacid3">Clamp3 Id</label>
+                <input type='number' id='hacid3' name='hacid3' min='0' max='65535'>
             </div>
-            <div id='jf'>
+            <div id='hatlse'>
                 <div class="pure-control-group">
-                    <label for="jfp">TLS FingerPrint</label>
-                    <input type='text' id='jfp' name='jfp' maxlength='59' pattern='^([0-9A-Fa-f]{2}[ :-]*){19}([0-9A-Fa-f]{2})$' size='65'>
+                    <label for="hafp">TLS FingerPrint</label>
+                    <input type='text' id='hafp' name='hafp' maxlength='59' pattern='^([0-9A-Fa-f]{2}[ :-]*){19}([0-9A-Fa-f]{2})$' size='65'>
                     <span class="pure-form-message-inline">(separators are : &lt;none&gt;,&lt;space&gt;,:,-)</span>
                 </div>
             </div>
@@ -139,17 +151,24 @@ $templatesWithCustoFiles=@{
 '@
         ;
         HTMLScript=@'
-        function onJEChange(){
-            if($("#je").prop("checked")) $("#j").show();
-            else $("#j").hide();
+        function onHAEChange(){
+            switch($("#hae").val()){
+                case "0":
+                    $("#ha").hide();
+                    break;
+                case "1":
+                    $("#j").show();
+                    $("#ha").show();
+                    break;
+            }
         };
-        $("#je").change(onJEChange);
+        $("#hae").change(onHAEChange);
 
-        function onJTChange(){
-            if($("#jt").prop("checked")) $("#jf").show();
-            else $("#jf").hide();
+        function onHATLSChange(){
+            if($("#hatls").prop("checked")) $("#hatlse").show();
+            else $("#hatlse").hide();
         };
-        $("#jt").change(onJTChange);
+        $("#hatls").change(onHATLSChange);
 
         $("#f1").submit(function(event){
             $("#r1").html("Saving Configuration...");

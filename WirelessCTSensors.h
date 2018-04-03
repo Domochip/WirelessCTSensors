@@ -13,7 +13,6 @@
 #include "CTSensor.h"
 #include "SimpleTimer.h"
 
-
 //define the number of CTSensor
 #define NUMBER_OF_CTSENSOR 3
 
@@ -27,16 +26,20 @@ private:
 
   typedef struct
   {
-    bool enabled = false;
-    bool tls = false;
-    char hostname[64 + 1] = {0};
     char apiKey[48 + 1] = {0};
     char commandType[10 + 1] = {0};
-    int clampIds[3] = {0, 0, 0};
-
-    byte fingerPrint[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   } Jeedom;
-  Jeedom jeedom;
+
+  typedef struct
+  {
+    byte enabled = 0; //0 : no HA; 1 : Jeedom; 2 : ...
+    bool tls = false;
+    byte fingerPrint[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    char hostname[64 + 1] = {0};
+    int clampIds[3] = {0, 0, 0};
+    Jeedom jeedom;
+  } HomeAutomation;
+  HomeAutomation ha;
 
   CTSensor _ctSensors[NUMBER_OF_CTSENSOR];
   SimpleTimer _sendTimer;
