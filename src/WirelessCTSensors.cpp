@@ -116,7 +116,7 @@ void WebCTSensors::SetConfigDefaultValues()
   noiseCancellation[1] = 0.0;
   noiseCancellation[2] = 0.0;
 
-  ha.enabled = false;
+  ha.enabled = 0;
   ha.tls = false;
   memset(ha.fingerPrint, 0, 20);
   ha.hostname[0] = 0;
@@ -186,8 +186,6 @@ void WebCTSensors::ParseConfigJSON(JsonObject &root)
 //Parse HTTP POST parameters in request into configuration properties
 bool WebCTSensors::ParseConfigWebRequest(AsyncWebServerRequest *request)
 {
-  char tempApiKey[48 + 1];
-
   if (request->hasParam(F("cr1"), true))
     clampRatios[0] = request->getParam(F("cr1"), true)->value().toFloat();
   if (request->hasParam(F("cnc1"), true))

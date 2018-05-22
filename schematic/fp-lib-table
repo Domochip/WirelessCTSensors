@@ -1,0 +1,5 @@
+(fp_lib_table
+  (lib (name ESP8266)(type KiCad)(uri ${KIPRJMOD}\lib\ESP8266.pretty)(options "")(descr ""))
+  (lib (name jack_trs_5pins)(type KiCad)(uri ${KIPRJMOD}\lib\jack_trs_5pins.pretty)(options "")(descr ""))
+  (lib (name "Clean Diode SMA")(type KiCad)(uri "${KIPRJMOD}\\lib\\Diode SMA.pretty")(options "")(descr ""))
+)

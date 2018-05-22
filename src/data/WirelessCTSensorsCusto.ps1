@@ -96,7 +96,6 @@ $templatesWithCustoFiles=@{
             </select>
         </div>
 
-
         <div id='ha' style='display:none'>
             <div class="pure-control-group">
                 <label for="hatls">SSL/TLS</label>
@@ -114,17 +113,17 @@ $templatesWithCustoFiles=@{
                     <label for="ja">ApiKey</label>
                     <input type='password' id='ja' name='ja' maxlength='48' pattern='[A-Za-z0-9-.]+' size=50 title='APIKey from Jeedom configuration webpage'>
                 </div>
+                <div class="pure-control-group">
+                    <label for="jct">CommandType</label>
+                    <input type='text' id='jct' name='jct' maxlength='10'>
+                    <span class="pure-form-message-inline">(Virtual = 'virtual')</span>
+                </div>
             </div>
 
             <div class="pure-control-group">
-                <label for="jct">CommandType</label>
-                <input type='text' id='jct' name='jct' maxlength='10'>
-                <span class="pure-form-message-inline">(Virtual = 'virtual')</span>
-            </div>
-            <div class="pure-control-group">
                 <label for="hacid1">Clamp1 Id</label>
                 <input type='number' id='hacid1' name='hacid1' min='0' max='65535'>
-                <span class="pure-form-message-inline">(Jeedom Command Id) (0 means disabled)</span>
+                <span class="pure-form-message-inline">(HA Command Id) (0 means disabled)</span>
             </div>
             <div class="pure-control-group">
                 <label for="hacid2">Clamp2 Id</label>
@@ -220,10 +219,10 @@ $templatesWithCustoFiles=@{
 }
 
 #call script that prepare Common Web Files and contain compression/Convert/Merge functions
-. ..\src\data\_prepareCommonWebFiles.ps1
+. ..\base\data\_prepareCommonWebFiles.ps1
 
 $path=(Split-Path -Path $MyInvocation.MyCommand.Path)
-$templatePath=($path+"\..\src\data")
+$templatePath=($path+"\..\base\data")
 
 Write-Host "--- Prepare Application Web Files ---"
 Convert-TemplatesWithCustoToCppHeader -templatePath $templatePath -filesAndCusto $templatesWithCustoFiles -destinationPath $path
