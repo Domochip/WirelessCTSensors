@@ -1,0 +1,144 @@
+<div id="applicationName" style="display: none;">WirelessCTSensors</div>
+<div id="shortApplicationName" style="display: none;">WCTSensors</div>
+
+<h2 class="content-subhead">CTSensors<span id="l1"><h6 style="display:inline"><b> Loading...</b></h6></span></h2>
+<form class="pure-form pure-form-aligned" id='f1'>
+    <fieldset>
+
+<div class="pure-control-group">
+    <label for="cr1">Clamp 1 Ratio</label>
+    <input type='number' id='cr1' name='cr1' step='0.01'/>
+</div>
+<div class="pure-control-group">
+    <label for="cnc1">Clamp 1 Noise Cancellation</label>
+    <input type='number' id='cnc1' name='cnc1' step='0.001'/>
+</div>
+<div class="pure-control-group">
+    <label for="cr2">Clamp 2 Ratio</label>
+    <input type='number' id='cr2' name='cr2' step='0.01'/>
+</div>
+<div class="pure-control-group">
+    <label for="cnc2">Clamp 2 Noise Cancellation</label>
+    <input type='number' id='cnc2' name='cnc2' step='0.001'/>
+</div>
+<div class="pure-control-group">
+    <label for="cr3">Clamp 3 Ratio</label>
+    <input type='number' id='cr3' name='cr3' step='0.01'/>
+</div>
+<div class="pure-control-group">
+    <label for="cnc3">Clamp 3 Noise Cancellation</label>
+    <input type='number' id='cnc3' name='cnc3' step='0.001'/>
+</div>
+
+<h3 class="content-subhead">Home Automation</h3>
+
+<div class="pure-control-group">
+    <label for="hae">Type</label>
+    <select id='hae' name='hae'>
+        <option value="0">None</option>
+        <option value="1">Jeedom</option>
+    </select>
+</div>
+
+<div id='ha' style='display:none'>
+    <div class="pure-control-group">
+        <label for="hatls">SSL/TLS</label>
+        <input type='checkbox' id='hatls' name='hatls'>
+    </div>
+    <div class="pure-control-group">
+        <label for="hah">Hostname</label>
+        <input type='text' id='hah' name='hah' maxlength='64' pattern='[A-Za-z0-9-.]+' size='50' title='DNS name or IP of the Jeedom server'>
+        <span class="pure-form-message-inline">(Hostname should match with certificate name if SSL/TLS is enabled)</span>
+    </div>
+
+    <div id='j' style='display:none'>
+
+        <div class="pure-control-group">
+            <label for="ja">ApiKey</label>
+            <input type='password' id='ja' name='ja' maxlength='48' pattern='[A-Za-z0-9-.]+' size=50 title='APIKey from Jeedom configuration webpage'>
+        </div>
+        <div class="pure-control-group">
+            <label for="jct">CommandType</label>
+            <input type='text' id='jct' name='jct' maxlength='10'>
+            <span class="pure-form-message-inline">(Virtual = 'virtual')</span>
+        </div>
+    </div>
+
+    <div class="pure-control-group">
+        <label for="hacid1">Clamp1 Id</label>
+        <input type='number' id='hacid1' name='hacid1' min='0' max='65535'>
+        <span class="pure-form-message-inline">(HA Command Id) (0 means disabled)</span>
+    </div>
+    <div class="pure-control-group">
+        <label for="hacid2">Clamp2 Id</label>
+        <input type='number' id='hacid2' name='hacid2' min='0' max='65535'>
+    </div>
+    <div class="pure-control-group">
+        <label for="hacid3">Clamp3 Id</label>
+        <input type='number' id='hacid3' name='hacid3' min='0' max='65535'>
+    </div>
+    <div id='hatlse'>
+        <div class="pure-control-group">
+            <label for="hafp">TLS FingerPrint</label>
+            <input type='text' id='hafp' name='hafp' maxlength='59' pattern='^([0-9A-Fa-f]{2}[ :-]*){19}([0-9A-Fa-f]{2})$' size='65'>
+            <span class="pure-form-message-inline">(separators are : &lt;none&gt;,&lt;space&gt;,:,-)</span>
+        </div>
+    </div>
+</div>
+        <div class="pure-controls">
+            <input type='submit' value='Save' class="pure-button pure-button-primary" disabled>
+        </div>
+    </fieldset>
+</form>
+<span id='r1'></span>
+
+<script>
+    function onHAEChange(){
+        switch($("#hae").val()){
+            case "0":
+                $("#ha").hide();
+                break;
+            case "1":
+                $("#j").show();
+                $("#ha").show();
+                break;
+        }
+    };
+    $("#hae").change(onHAEChange);
+
+    function onHATLSChange(){
+        if($("#hatls").prop("checked")) $("#hatlse").show();
+        else $("#hatlse").hide();
+    };
+    $("#hatls").change(onHATLSChange);
+
+    $("#f1").submit(function(event){
+        $("#r1").html("Saving Configuration...");
+        $.post("/sc1",$("#f1").serialize(),function(){ 
+            $("#f1").hide();
+            var reload5sec=document.createElement('script');
+            reload5sec.text='var count=4;var cdi=setInterval(function(){$("#cd").text(count);if(!count){clearInterval(cdi);location.reload();}count--;},1000);';
+            $('#r1').html('<h3><b>Configuration saved <span style="color: green;">successfully</span>. System is restarting now.</b></h3>This page will be reloaded in <span id="cd">5</span>sec.').append(reload5sec);
+        }).fail(function(){
+            $('#r1').html('<h3><b>Configuration <span style="color: red;">error</span>.</b></h3>');
+        });
+        event.preventDefault();
+    });
+
+    $.getJSON("/gc1", function(GC1){
+
+        $.each(GC1,function(k,v){
+
+            if($('#'+k).prop('type')!='checkbox') $('#'+k).val(v);
+            else $('#'+k).prop("checked",v);
+
+            $('#'+k).trigger("change");
+        })
+
+        $("input[type=submit]",$("#f1")).prop("disabled",false);
+        $("#l1").fadeOut();
+    })
+    .fail(function(){
+        $("#l1").html('<h6 style="display:inline;color:red;"><b> Failed</b></h6>');
+    });
+</script>

@@ -1,0 +1,33 @@
+<div id="applicationName" style="display: none;">WirelessCTSensors</div>
+<div id="shortApplicationName" style="display: none;">WCTSensors</div>
+
+<h2 class="content-subhead">CTSensors <span id="l1"><h6 style="display:inline"><b> Loading...</b></h6></span></h2>
+Current I 1 : <span id="ci1"></span> (average : <span id="cai1"></span>)<br>
+Current I 2 : <span id="ci2"></span> (average : <span id="cai2"></span>)<br>
+Current I 3 : <span id="ci3"></span> (average : <span id="cai3"></span>)<br>
+<br>
+Counter 1 : <span id="c1"></span><br>
+Counter 2 : <span id="c2"></span><br>
+Counter 2 : <span id="c3"></span><br>
+<dl>
+    <dt>Jeedom Upload</dt>
+    <dd>Last Request Clamp 1 : <span id="lr1"></span></dd>
+    <dd>Last Request Result Clamp 1 : <span id="lrr1"></span></dd>
+    <dd>Last Request Clamp 2 : <span id="lr2"></span></dd>
+    <dd>Last Request Result Clamp 2 : <span id="lrr2"></span></dd>
+    <dd>Last Request Clamp 3 : <span id="lr3"></span></dd>
+    <dd>Last Request Result Clamp 3 : <span id="lrr3"></span></dd>
+</dl>
+
+<script>
+    $.getJSON("/gs1", function(GS1){
+
+        $.each(GS1,function(k,v){
+            $('#'+k).html(v);
+        })
+        $("#l1").fadeOut();
+    })
+    .fail(function(){
+        $("#l1").html('<h4 style="display:inline;color:red;"><b> Failed</b></h4>');
+    });
+</script>
