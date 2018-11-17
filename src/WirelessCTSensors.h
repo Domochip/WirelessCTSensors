@@ -9,10 +9,10 @@
 #include "base\Utils.h"
 #include "base\Base.h"
 
+const char appDataPredefPassword[] PROGMEM = "ewcXoCt4HHjZUvY1";
+
 #include "data\status1.html.gz.h"
 #include "data\config1.html.gz.h"
-#include "data\fw1.html.gz.h"
-#include "data\discover1.html.gz.h"
 
 #include <ESP8266HTTPClient.h>
 #include "CTSensor.h"
@@ -20,8 +20,6 @@
 
 //define the number of CTSensor
 #define NUMBER_OF_CTSENSOR 3
-
-const char appDataPredefPassword[] PROGMEM = "ewcXoCt4HHjZUvY1";
 
 class WebCTSensors : public Application
 {

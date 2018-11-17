@@ -342,11 +342,8 @@ const uint8_t* WebCTSensors::GetHTMLContent(WebPageForPlaceHolder wp){
     case config:
       return (const uint8_t*) config1htmlgz;
       break;
-    case fw:
-      return (const uint8_t*) fw1htmlgz;
-      break;
-    case discover:
-      return (const uint8_t*) discover1htmlgz;
+    default:
+      return nullptr;
       break;
   };
   return nullptr;
@@ -360,11 +357,8 @@ size_t WebCTSensors::GetHTMLContentSize(WebPageForPlaceHolder wp){
     case config:
       return sizeof(config1htmlgz);
       break;
-    case fw:
-      return sizeof(fw1htmlgz);
-      break;
-    case discover:
-      return sizeof(discover1htmlgz);
+    default:
+      return 0;
       break;
   };
   return 0;
