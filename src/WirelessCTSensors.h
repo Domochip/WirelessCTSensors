@@ -54,7 +54,7 @@ private:
   void SendTimerTick();
 
   void SetConfigDefaultValues();
-  void ParseConfigJSON(JsonObject &root);
+  void ParseConfigJSON(DynamicJsonDocument &doc);
   bool ParseConfigWebRequest(AsyncWebServerRequest *request);
   String GenerateConfigJSON(bool forSaveFile);
   String GenerateStatusJSON();

@@ -19,8 +19,7 @@ void WebCTSensors::SendTimerTick()
       switch (ha.enabled)
       {
       case 1:
-        _requests[i] = F("&type=cmd&id=");
-        _requests[i] += ha.clampIds[i];
+        _requests[i] = String(F("&type=")) + ha.jeedom.commandType + F("&id=") + ha.clampIds[i];
         completeURI = completeURI + F("http") + (ha.tls ? F("s") : F("")) + F("://") + ha.hostname + F("/core/api/jeeApi.php?apikey=") + ha.jeedom.apiKey + _requests[i];
         break;
       }
@@ -29,11 +28,16 @@ void WebCTSensors::SendTimerTick()
 
       //if tls is enabled or not, we need to provide certificate fingerPrint
       if (!ha.tls)
-        http.begin(completeURI);
+      {
+        WiFiClient client;
+        http.begin(client, completeURI);
+      }
       else
       {
+        WiFiClientSecure clientSecure;
         char fpStr[41];
-        http.begin(completeURI, Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
+        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
+        http.begin(clientSecure, completeURI);
       }
 
       _requestResults[i] = http.GET();
@@ -91,11 +95,16 @@ void WebCTSensors::SendTimerTick()
 
       //if tls is enabled or not, we need to provide certificate fingerPrint
       if (!ha.tls)
-        http.begin(completeURI);
+      {
+        WiFiClient client;
+        http.begin(client, completeURI);
+      }
       else
       {
+        WiFiClientSecure clientSecure;
         char fpStr[41];
-        http.begin(completeURI, Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
+        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
+        http.begin(clientSecure, completeURI);
       }
 
       _requestResults[i] = http.GET();
@@ -128,59 +137,59 @@ void WebCTSensors::SetConfigDefaultValues()
 };
 //------------------------------------------
 //Parse JSON object into configuration properties
-void WebCTSensors::ParseConfigJSON(JsonObject &root)
+void WebCTSensors::ParseConfigJSON(DynamicJsonDocument &doc)
 {
   //Retrocompatibility block to be removed after v3.1.5 --
-  if (root["je"].success())
-    ha.enabled = root["je"] ? 1 : 0;
-  if (root["jt"].success())
-    ha.tls = root["jt"];
-  if (root["jh"].success())
-    strlcpy(ha.hostname, root["jh"], sizeof(ha.hostname));
-  if (root["ct"].success())
-    strlcpy(ha.jeedom.commandType, root["ct"], sizeof(ha.jeedom.commandType));
-  if (root["c1"].success())
-    ha.clampIds[0] = root["c1"];
-  if (root["c2"].success())
-    ha.clampIds[1] = root["c2"];
-  if (root["c3"].success())
-    ha.clampIds[2] = root["c3"];
-  if (root["jfp"].success())
-    Utils::FingerPrintS2A(ha.fingerPrint, root["jfp"]);
+  if (!doc["je"].isNull())
+    ha.enabled = doc["je"] ? 1 : 0;
+  if (!doc["jt"].isNull())
+    ha.tls = doc["jt"];
+  if (!doc["jh"].isNull())
+    strlcpy(ha.hostname, doc["jh"], sizeof(ha.hostname));
+  if (!doc["ct"].isNull())
+    strlcpy(ha.jeedom.commandType, doc["ct"], sizeof(ha.jeedom.commandType));
+  if (!doc["c1"].isNull())
+    ha.clampIds[0] = doc["c1"];
+  if (!doc["c2"].isNull())
+    ha.clampIds[1] = doc["c2"];
+  if (!doc["c3"].isNull())
+    ha.clampIds[2] = doc["c3"];
+  if (!doc["jfp"].isNull())
+    Utils::FingerPrintS2A(ha.fingerPrint, doc["jfp"]);
   // --
 
-  if (root["cr1"].success())
-    clampRatios[0] = root["cr1"];
-  if (root["cnc1"].success())
-    noiseCancellation[0] = root["cnc1"];
-  if (root["cr2"].success())
-    clampRatios[1] = root["cr2"];
-  if (root["cnc2"].success())
-    noiseCancellation[1] = root["cnc2"];
-  if (root["cr3"].success())
-    clampRatios[2] = root["cr3"];
-  if (root["cnc3"].success())
-    noiseCancellation[2] = root["cnc3"];
+  if (!doc["cr1"].isNull())
+    clampRatios[0] = doc["cr1"];
+  if (!doc["cnc1"].isNull())
+    noiseCancellation[0] = doc["cnc1"];
+  if (!doc["cr2"].isNull())
+    clampRatios[1] = doc["cr2"];
+  if (!doc["cnc2"].isNull())
+    noiseCancellation[1] = doc["cnc2"];
+  if (!doc["cr3"].isNull())
+    clampRatios[2] = doc["cr3"];
+  if (!doc["cnc3"].isNull())
+    noiseCancellation[2] = doc["cnc3"];
 
-  if (root[F("hae")].success())
-    ha.enabled = root[F("hae")];
-  if (root[F("hatls")].success())
-    ha.tls = root[F("hatls")];
-  if (root[F("hah")].success())
-    strlcpy(ha.hostname, root["hah"], sizeof(ha.hostname));
-  if (root[F("hacid1")].success())
-    ha.clampIds[0] = root[F("hacid1")];
-  if (root[F("hacid2")].success())
-    ha.clampIds[1] = root[F("hacid2")];
-  if (root[F("hacid3")].success())
-    ha.clampIds[2] = root[F("hacid3")];
-  if (root["hafp"].success())
-    Utils::FingerPrintS2A(ha.fingerPrint, root["hafp"]);
+  if (!doc[F("hae")].isNull())
+    ha.enabled = doc[F("hae")];
+  if (!doc[F("hatls")].isNull())
+    ha.tls = doc[F("hatls")];
+  if (!doc[F("hah")].isNull())
+    strlcpy(ha.hostname, doc["hah"], sizeof(ha.hostname));
+  if (!doc[F("hacid1")].isNull())
+    ha.clampIds[0] = doc[F("hacid1")];
+  if (!doc[F("hacid2")].isNull())
+    ha.clampIds[1] = doc[F("hacid2")];
+  if (!doc[F("hacid3")].isNull())
+    ha.clampIds[2] = doc[F("hacid3")];
+  if (!doc["hafp"].isNull())
+    Utils::FingerPrintS2A(ha.fingerPrint, doc["hafp"]);
 
-  if (root["ja"].success())
-    strlcpy(ha.jeedom.apiKey, root["ja"], sizeof(ha.jeedom.apiKey));
-  if (root["jct"].success())
-    strlcpy(ha.jeedom.commandType, root["jct"], sizeof(ha.jeedom.commandType));
+  if (!doc["ja"].isNull())
+    strlcpy(ha.jeedom.apiKey, doc["ja"], sizeof(ha.jeedom.apiKey));
+  if (!doc["jct"].isNull())
+    strlcpy(ha.jeedom.commandType, doc["jct"], sizeof(ha.jeedom.commandType));
 };
 //------------------------------------------
 //Parse HTTP POST parameters in request into configuration properties
@@ -334,32 +343,36 @@ bool WebCTSensors::AppInit(bool reInit)
 };
 //------------------------------------------
 //Return HTML Code to insert into Status Web page
-const uint8_t* WebCTSensors::GetHTMLContent(WebPageForPlaceHolder wp){
-      switch(wp){
-    case status:
-      return (const uint8_t*) status1htmlgz;
-      break;
-    case config:
-      return (const uint8_t*) config1htmlgz;
-      break;
-    default:
-      return nullptr;
-      break;
+const uint8_t *WebCTSensors::GetHTMLContent(WebPageForPlaceHolder wp)
+{
+  switch (wp)
+  {
+  case status:
+    return (const uint8_t *)status1htmlgz;
+    break;
+  case config:
+    return (const uint8_t *)config1htmlgz;
+    break;
+  default:
+    return nullptr;
+    break;
   };
   return nullptr;
 };
 //and his Size
-size_t WebCTSensors::GetHTMLContentSize(WebPageForPlaceHolder wp){
-  switch(wp){
-    case status:
-      return sizeof(status1htmlgz);
-      break;
-    case config:
-      return sizeof(config1htmlgz);
-      break;
-    default:
-      return 0;
-      break;
+size_t WebCTSensors::GetHTMLContentSize(WebPageForPlaceHolder wp)
+{
+  switch (wp)
+  {
+  case status:
+    return sizeof(status1htmlgz);
+    break;
+  case config:
+    return sizeof(config1htmlgz);
+    break;
+  default:
+    return 0;
+    break;
   };
   return 0;
 };
