@@ -1,5 +1,5 @@
-<h2 class="content-subhead">CTSensors<span id="l1"><h6 style="display:inline"><b> Loading...</b></h6></span></h2>
-<form class="pure-form pure-form-aligned" id='f1'>
+<h2 class="content-subhead">CTSensors<span id="l"><h6 style="display:inline"><b> Loading...</b></h6></span></h2>
+<form class="pure-form pure-form-aligned" id='f'>
     <fieldset>
 
 <div class="pure-control-group">
@@ -87,55 +87,64 @@
         </div>
     </fieldset>
 </form>
-<span id='r1'></span>
+<span id='r'></span>
 
 <script>
-    function onHAEChange(){
-        switch($("#hae").val()){
+    //QuerySelector Prefix is added by load function to know into what element queySelector need to look for
+    //var qsp = '#contentX ';
+
+    $(qsp+"#hae").addEventListener('change',function (){
+        switch($(qsp+"#hae").value){
             case "0":
-                $("#ha").hide();
+                $(qsp+"#ha").style.display='none';
                 break;
             case "1":
-                $("#j").show();
-                $("#ha").show();
+                $(qsp+"#j").style.display='';
+                $(qsp+"#ha").style.display='';
                 break;
         }
-    };
-    $("#hae").change(onHAEChange);
+    });
 
-    function onHATLSChange(){
-        if($("#hatls").prop("checked")) $("#hatlse").show();
-        else $("#hatlse").hide();
-    };
-    $("#hatls").change(onHATLSChange);
+    
+    $(qsp+"#hatls").addEventListener('change',function (){
+        if($(qsp+"#hatls").checked) $(qsp+"#hatlse").style.display='';
+        else $(qsp+"#hatlse").style.display='none';
+    });
 
-    $("#f1").submit(function(event){
-        $("#r1").html("Saving Configuration...");
-        $.post("/sc1",$("#f1").serialize(),function(){ 
-            $("#f1").hide();
-            var reload5sec=document.createElement('script');
-            reload5sec.text='var count=4;var cdi=setInterval(function(){$("#cd").text(count);if(!count){clearInterval(cdi);location.reload();}count--;},1000);';
-            $('#r1').html('<h3><b>Configuration saved <span style="color: green;">successfully</span>. System is restarting now.</b></h3>This page will be reloaded in <span id="cd">5</span>sec.').append(reload5sec);
-        }).fail(function(){
-            $('#r1').html('<h3><b>Configuration <span style="color: red;">error</span>.</b></h3>');
-        });
+    $(qsp+"#f").addEventListener('submit',function(event){
+        $(qsp+"#r").innerHTML="Saving Configuration...";
+        post("/sc"+qsp[8],
+            new FormData($(qsp+"#f")),
+            function(){ 
+                $(qsp+"#f").style.display='none';
+
+                $(qsp+'#r').innerHTML='<h3><b>Configuration saved <span style="color: green;">successfully</span>.</b></h3>This page will be reloaded in <span id="cd">5</span>sec.';
+                runScript('var count=4;var cdi=setInterval(function(){$("#cd").innerText=count;if(!count){clearInterval(cdi);location.reload();}count--;},1000);');
+            },
+            function(){
+                $(qsp+'#r').innerHTML='<h3><b>Configuration <span style="color: red;">error</span>.</b></h3>';
+            }
+        );
         event.preventDefault();
     });
 
-    $.getJSON("/gc1", function(GC1){
 
-        $.each(GC1,function(k,v){
+    getJSON("/gc"+qsp[8],
+        function(GC){
+            for(k in GC){
+                if($(qsp+'#'+k)){
+                    if($(qsp+'#'+k).type!='checkbox') $(qsp+'#'+k).value=GC[k];
+                    else $(qsp+'#'+k).checked=GC[k];
 
-            if($('#'+k).prop('type')!='checkbox') $('#'+k).val(v);
-            else $('#'+k).prop("checked",v);
+                    triggerEvent($(qsp+'#'+k),'change');
+                }
+            }
 
-            $('#'+k).trigger("change");
-        })
-
-        $("input[type=submit]",$("#f1")).prop("disabled",false);
-        $("#l1").fadeOut();
-    })
-    .fail(function(){
-        $("#l1").html('<h6 style="display:inline;color:red;"><b> Failed</b></h6>');
-    });
+            $(qsp+"#f input[type=submit]").disabled=false;
+            fadeOut($(qsp+"#l"));
+        },
+        function(){
+            $(qsp+"#l").innerHTML='<h6 style="display:inline;color:red;"><b> Failed</b></h6>';
+        }
+    );
 </script>

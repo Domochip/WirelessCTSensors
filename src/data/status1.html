@@ -1,7 +1,7 @@
 <div id="applicationName" style="display: none;">WirelessCTSensors</div>
 <div id="shortApplicationName" style="display: none;">WCTSensors</div>
 
-<h2 class="content-subhead">CTSensors <span id="l1"><h6 style="display:inline"><b> Loading...</b></h6></span></h2>
+<h2 class="content-subhead">CTSensors <span id="l"><h6 style="display:inline"><b> Loading...</b></h6></span></h2>
 Current I 1 : <span id="ci1"></span> (average : <span id="cai1"></span>)<br>
 Current I 2 : <span id="ci2"></span> (average : <span id="cai2"></span>)<br>
 Current I 3 : <span id="ci3"></span> (average : <span id="cai3"></span>)<br>
@@ -20,14 +20,18 @@ Counter 2 : <span id="c3"></span><br>
 </dl>
 
 <script>
-    $.getJSON("/gs1", function(GS1){
+    //QuerySelector Prefix is added by load function to know into what element queySelector need to look for
+    //var qsp = '#contentX ';
 
-        $.each(GS1,function(k,v){
-            $('#'+k).html(v);
-        })
-        $("#l1").fadeOut();
-    })
-    .fail(function(){
-        $("#l1").html('<h4 style="display:inline;color:red;"><b> Failed</b></h4>');
-    });
+    getJSON("/gs"+qsp[8],
+        function(GS){
+            for(k in GS){
+                if((e = $(qsp+'#' + k)) != undefined) e.innerHTML = GS[k];
+            }
+            fadeOut($(qsp+"#l"));
+        },
+        function(){
+            $(qsp+"#l").innerHTML='<h4 style="display:inline;color:red;"><b> Failed</b></h4>';
+        }
+    );
 </script>
