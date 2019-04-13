@@ -16,7 +16,7 @@ const char appDataPredefPassword[] PROGMEM = "ewcXoCt4HHjZUvY1";
 
 #include <ESP8266HTTPClient.h>
 #include "CTSensor.h"
-#include "SimpleTimer.h"
+#include "Ticker.h"
 
 //define the number of CTSensor
 #define NUMBER_OF_CTSENSOR 3
@@ -42,16 +42,19 @@ private:
     int clampIds[3] = {0, 0, 0};
     Jeedom jeedom;
   } HomeAutomation;
-  HomeAutomation ha;
+
+  HomeAutomation _ha;
 
   CTSensor _ctSensors[NUMBER_OF_CTSENSOR];
-  SimpleTimer _sendTimer;
-  char serialBuffer[12] = {0};
+  char _serialBuffer[12] = {0};
+
+  bool _needPublish = false;
+  Ticker _publishTicker;
 
   String _requests[NUMBER_OF_CTSENSOR];
   int _requestResults[NUMBER_OF_CTSENSOR];
 
-  void SendTimerTick();
+  void PublishTick();
 
   void SetConfigDefaultValues();
   void ParseConfigJSON(DynamicJsonDocument &doc);
@@ -59,7 +62,7 @@ private:
   String GenerateConfigJSON(bool forSaveFile);
   String GenerateStatusJSON();
   bool AppInit(bool reInit);
-  const uint8_t* GetHTMLContent(WebPageForPlaceHolder wp);
+  const uint8_t *GetHTMLContent(WebPageForPlaceHolder wp);
   size_t GetHTMLContentSize(WebPageForPlaceHolder wp);
   void AppInitWebServer(AsyncWebServer &server, bool &shouldReboot, bool &pauseApplication);
   void AppRun();

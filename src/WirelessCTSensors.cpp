@@ -4,39 +4,37 @@
 
 //------------------------------------------
 //Function Called by timer when Tick
-void WebCTSensors::SendTimerTick()
+void WebCTSensors::PublishTick()
 {
 
   for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
   {
 
     //if CTSensor is not ready, then request for initial value in Home Automation
-    if (clampRatios[i] != 0.0 && !_ctSensors[i].GetReady() && ha.clampIds[i] != 0)
+    if (clampRatios[i] != 0.0 && !_ctSensors[i].GetReady() && _ha.clampIds[i] != 0)
     {
 
       String completeURI;
 
-      switch (ha.enabled)
+      switch (_ha.enabled)
       {
       case 1:
-        _requests[i] = String(F("&type=")) + ha.jeedom.commandType + F("&id=") + ha.clampIds[i];
-        completeURI = completeURI + F("http") + (ha.tls ? F("s") : F("")) + F("://") + ha.hostname + F("/core/api/jeeApi.php?apikey=") + ha.jeedom.apiKey + _requests[i];
+        _requests[i] = String(F("&type=")) + _ha.jeedom.commandType + F("&id=") + _ha.clampIds[i];
+        completeURI = completeURI + F("http") + (_ha.tls ? F("s") : F("")) + F("://") + _ha.hostname + F("/core/api/jeeApi.php?apikey=") + _ha.jeedom.apiKey + _requests[i];
         break;
       }
       //create HTTP request
+      WiFiClient client;
+      WiFiClientSecure clientSecure;
       HTTPClient http;
 
       //if tls is enabled or not, we need to provide certificate fingerPrint
-      if (!ha.tls)
-      {
-        WiFiClient client;
+      if (!_ha.tls)
         http.begin(client, completeURI);
-      }
       else
       {
-        WiFiClientSecure clientSecure;
         char fpStr[41];
-        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
+        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, _ha.fingerPrint));
         http.begin(clientSecure, completeURI);
       }
 
@@ -49,7 +47,7 @@ void WebCTSensors::SendTimerTick()
         uint16_t billions = 0;
         unsigned long payloadValue = 0;
 
-        switch (ha.enabled)
+        switch (_ha.enabled)
         {
         case 1:
           String payload = http.getString();
@@ -77,16 +75,16 @@ void WebCTSensors::SendTimerTick()
     }
 
     //this time ctSensor is ready
-    if (clampRatios[i] != 0.0 && _ctSensors[i].GetReady() && ha.clampIds[i] != 0)
+    if (clampRatios[i] != 0.0 && _ctSensors[i].GetReady() && _ha.clampIds[i] != 0)
     {
 
       String completeURI;
 
-      switch (ha.enabled)
+      switch (_ha.enabled)
       {
       case 1:
-        _requests[i] = String(F("&type=")) + ha.jeedom.commandType + F("&id=") + ha.clampIds[i] + F("&value=") + _ctSensors[i].GetCounterUpdated();
-        completeURI = completeURI + F("http") + (ha.tls ? F("s") : F("")) + F("://") + ha.hostname + F("/core/api/jeeApi.php?apikey=") + ha.jeedom.apiKey + _requests[i];
+        _requests[i] = String(F("&type=")) + _ha.jeedom.commandType + F("&id=") + _ha.clampIds[i] + F("&value=") + _ctSensors[i].GetCounterUpdated();
+        completeURI = completeURI + F("http") + (_ha.tls ? F("s") : F("")) + F("://") + _ha.hostname + F("/core/api/jeeApi.php?apikey=") + _ha.jeedom.apiKey + _requests[i];
         break;
       }
 
@@ -94,7 +92,7 @@ void WebCTSensors::SendTimerTick()
       HTTPClient http;
 
       //if tls is enabled or not, we need to provide certificate fingerPrint
-      if (!ha.tls)
+      if (!_ha.tls)
       {
         WiFiClient client;
         http.begin(client, completeURI);
@@ -103,7 +101,7 @@ void WebCTSensors::SendTimerTick()
       {
         WiFiClientSecure clientSecure;
         char fpStr[41];
-        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, ha.fingerPrint));
+        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, _ha.fingerPrint));
         http.begin(clientSecure, completeURI);
       }
 
@@ -125,15 +123,15 @@ void WebCTSensors::SetConfigDefaultValues()
   noiseCancellation[1] = 0.0;
   noiseCancellation[2] = 0.0;
 
-  ha.enabled = 0;
-  ha.tls = false;
-  memset(ha.fingerPrint, 0, 20);
-  ha.hostname[0] = 0;
-  ha.clampIds[0] = 0;
-  ha.clampIds[1] = 0;
-  ha.clampIds[2] = 0;
-  ha.jeedom.apiKey[0] = 0;
-  ha.jeedom.commandType[0] = 0;
+  _ha.enabled = 0;
+  _ha.tls = false;
+  memset(_ha.fingerPrint, 0, 20);
+  _ha.hostname[0] = 0;
+  _ha.clampIds[0] = 0;
+  _ha.clampIds[1] = 0;
+  _ha.clampIds[2] = 0;
+  _ha.jeedom.apiKey[0] = 0;
+  _ha.jeedom.commandType[0] = 0;
 };
 //------------------------------------------
 //Parse JSON object into configuration properties
@@ -141,21 +139,21 @@ void WebCTSensors::ParseConfigJSON(DynamicJsonDocument &doc)
 {
   //Retrocompatibility block to be removed after v3.1.5 --
   if (!doc["je"].isNull())
-    ha.enabled = doc["je"] ? 1 : 0;
+    _ha.enabled = doc["je"] ? 1 : 0;
   if (!doc["jt"].isNull())
-    ha.tls = doc["jt"];
+    _ha.tls = doc["jt"];
   if (!doc["jh"].isNull())
-    strlcpy(ha.hostname, doc["jh"], sizeof(ha.hostname));
+    strlcpy(_ha.hostname, doc["jh"], sizeof(_ha.hostname));
   if (!doc["ct"].isNull())
-    strlcpy(ha.jeedom.commandType, doc["ct"], sizeof(ha.jeedom.commandType));
+    strlcpy(_ha.jeedom.commandType, doc["ct"], sizeof(_ha.jeedom.commandType));
   if (!doc["c1"].isNull())
-    ha.clampIds[0] = doc["c1"];
+    _ha.clampIds[0] = doc["c1"];
   if (!doc["c2"].isNull())
-    ha.clampIds[1] = doc["c2"];
+    _ha.clampIds[1] = doc["c2"];
   if (!doc["c3"].isNull())
-    ha.clampIds[2] = doc["c3"];
+    _ha.clampIds[2] = doc["c3"];
   if (!doc["jfp"].isNull())
-    Utils::FingerPrintS2A(ha.fingerPrint, doc["jfp"]);
+    Utils::FingerPrintS2A(_ha.fingerPrint, doc["jfp"]);
   // --
 
   if (!doc["cr1"].isNull())
@@ -172,24 +170,24 @@ void WebCTSensors::ParseConfigJSON(DynamicJsonDocument &doc)
     noiseCancellation[2] = doc["cnc3"];
 
   if (!doc[F("hae")].isNull())
-    ha.enabled = doc[F("hae")];
+    _ha.enabled = doc[F("hae")];
   if (!doc[F("hatls")].isNull())
-    ha.tls = doc[F("hatls")];
+    _ha.tls = doc[F("hatls")];
   if (!doc[F("hah")].isNull())
-    strlcpy(ha.hostname, doc["hah"], sizeof(ha.hostname));
+    strlcpy(_ha.hostname, doc["hah"], sizeof(_ha.hostname));
   if (!doc[F("hacid1")].isNull())
-    ha.clampIds[0] = doc[F("hacid1")];
+    _ha.clampIds[0] = doc[F("hacid1")];
   if (!doc[F("hacid2")].isNull())
-    ha.clampIds[1] = doc[F("hacid2")];
+    _ha.clampIds[1] = doc[F("hacid2")];
   if (!doc[F("hacid3")].isNull())
-    ha.clampIds[2] = doc[F("hacid3")];
+    _ha.clampIds[2] = doc[F("hacid3")];
   if (!doc["hafp"].isNull())
-    Utils::FingerPrintS2A(ha.fingerPrint, doc["hafp"]);
+    Utils::FingerPrintS2A(_ha.fingerPrint, doc["hafp"]);
 
   if (!doc["ja"].isNull())
-    strlcpy(ha.jeedom.apiKey, doc["ja"], sizeof(ha.jeedom.apiKey));
+    strlcpy(_ha.jeedom.apiKey, doc["ja"], sizeof(_ha.jeedom.apiKey));
   if (!doc["jct"].isNull())
-    strlcpy(ha.jeedom.commandType, doc["jct"], sizeof(ha.jeedom.commandType));
+    strlcpy(_ha.jeedom.commandType, doc["jct"], sizeof(_ha.jeedom.commandType));
 };
 //------------------------------------------
 //Parse HTTP POST parameters in request into configuration properties
@@ -209,29 +207,29 @@ bool WebCTSensors::ParseConfigWebRequest(AsyncWebServerRequest *request)
     noiseCancellation[2] = request->getParam(F("cnc3"), true)->value().toFloat();
 
   if (request->hasParam(F("hae"), true))
-    ha.enabled = request->getParam(F("hae"), true)->value().toInt();
+    _ha.enabled = request->getParam(F("hae"), true)->value().toInt();
 
   //if an home Automation system is enabled then get common param
-  if (ha.enabled)
+  if (_ha.enabled)
   {
     if (request->hasParam(F("hatls"), true))
-      ha.tls = (request->getParam(F("hatls"), true)->value() == F("on"));
+      _ha.tls = (request->getParam(F("hatls"), true)->value() == F("on"));
     else
-      ha.tls = false;
-    if (request->hasParam(F("hah"), true) && request->getParam(F("hah"), true)->value().length() < sizeof(ha.hostname))
-      strcpy(ha.hostname, request->getParam(F("hah"), true)->value().c_str());
+      _ha.tls = false;
+    if (request->hasParam(F("hah"), true) && request->getParam(F("hah"), true)->value().length() < sizeof(_ha.hostname))
+      strcpy(_ha.hostname, request->getParam(F("hah"), true)->value().c_str());
     if (request->hasParam(F("hacid1"), true))
-      ha.clampIds[0] = request->getParam(F("hacid1"), true)->value().toInt();
+      _ha.clampIds[0] = request->getParam(F("hacid1"), true)->value().toInt();
     if (request->hasParam(F("hacid2"), true))
-      ha.clampIds[1] = request->getParam(F("hacid2"), true)->value().toInt();
+      _ha.clampIds[1] = request->getParam(F("hacid2"), true)->value().toInt();
     if (request->hasParam(F("hacid3"), true))
-      ha.clampIds[2] = request->getParam(F("hacid3"), true)->value().toInt();
+      _ha.clampIds[2] = request->getParam(F("hacid3"), true)->value().toInt();
     if (request->hasParam(F("hafp"), true))
-      Utils::FingerPrintS2A(ha.fingerPrint, request->getParam(F("hafp"), true)->value().c_str());
+      Utils::FingerPrintS2A(_ha.fingerPrint, request->getParam(F("hafp"), true)->value().c_str());
   }
 
   //Now get specific param
-  switch (ha.enabled)
+  switch (_ha.enabled)
   {
   case 1: //Jeedom
     char tempApiKey[48 + 1];
@@ -239,12 +237,12 @@ bool WebCTSensors::ParseConfigWebRequest(AsyncWebServerRequest *request)
     if (request->hasParam(F("ja"), true) && request->getParam(F("ja"), true)->value().length() < sizeof(tempApiKey))
       strcpy(tempApiKey, request->getParam(F("ja"), true)->value().c_str());
     if (request->hasParam(F("jct"), true))
-      strncpy(ha.jeedom.commandType, request->getParam(F("jct"), true)->value().c_str(), sizeof(ha.jeedom.commandType) - 1);
+      strncpy(_ha.jeedom.commandType, request->getParam(F("jct"), true)->value().c_str(), sizeof(_ha.jeedom.commandType) - 1);
     //check for previous apiKey (there is a predefined special password that mean to keep already saved one)
     if (strcmp_P(tempApiKey, appDataPredefPassword))
-      strcpy(ha.jeedom.apiKey, tempApiKey);
-    if (!ha.hostname[0] || !ha.jeedom.apiKey[0])
-      ha.enabled = 0;
+      strcpy(_ha.jeedom.apiKey, tempApiKey);
+    if (!_ha.hostname[0] || !_ha.jeedom.apiKey[0])
+      _ha.enabled = 0;
     break;
   }
 
@@ -264,22 +262,22 @@ String WebCTSensors::GenerateConfigJSON(bool forSaveFile = false)
   gc = gc + F(",\"cnc2\":") + noiseCancellation[1];
   gc = gc + F(",\"cnc3\":") + noiseCancellation[2];
 
-  gc = gc + F(",\"hae\":") + ha.enabled;
-  gc = gc + F(",\"hatls\":") + ha.tls;
-  gc = gc + F(",\"hah\":\"") + ha.hostname + '"';
-  gc = gc + F(",\"hacid1\":") + ha.clampIds[0];
-  gc = gc + F(",\"hacid2\":") + ha.clampIds[1];
-  gc = gc + F(",\"hacid3\":") + ha.clampIds[2];
-  gc = gc + F(",\"hafp\":\"") + Utils::FingerPrintA2S(fpStr, ha.fingerPrint, forSaveFile ? 0 : ':') + '"';
+  gc = gc + F(",\"hae\":") + _ha.enabled;
+  gc = gc + F(",\"hatls\":") + _ha.tls;
+  gc = gc + F(",\"hah\":\"") + _ha.hostname + '"';
+  gc = gc + F(",\"hacid1\":") + _ha.clampIds[0];
+  gc = gc + F(",\"hacid2\":") + _ha.clampIds[1];
+  gc = gc + F(",\"hacid3\":") + _ha.clampIds[2];
+  gc = gc + F(",\"hafp\":\"") + Utils::FingerPrintA2S(fpStr, _ha.fingerPrint, forSaveFile ? 0 : ':') + '"';
 
   if (forSaveFile)
   {
-    if (ha.enabled == 1)
-      gc = gc + F(",\"ja\":\"") + ha.jeedom.apiKey + '"';
+    if (_ha.enabled == 1)
+      gc = gc + F(",\"ja\":\"") + _ha.jeedom.apiKey + '"';
   }
   else
     gc = gc + F(",\"ja\":\"") + (__FlashStringHelper *)appDataPredefPassword + '"'; //predefined special password (mean to keep already saved one)
-  gc = gc + F(",\"jct\":\"") + ha.jeedom.commandType + '"';
+  gc = gc + F(",\"jct\":\"") + _ha.jeedom.commandType + '"';
 
   gc = gc + '}';
 
@@ -300,7 +298,7 @@ String WebCTSensors::GenerateStatusJSON()
   gs = gs + F(",\"c1\":") + _ctSensors[0].GetCounter();
   gs = gs + F(",\"c2\":") + _ctSensors[1].GetCounter();
   gs = gs + F(",\"c3\":") + _ctSensors[2].GetCounter();
-  if (ha.enabled)
+  if (_ha.enabled)
     for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
     {
       gs = gs + F(",\"lr") + (i + 1) + F("\":\"") + _requests[i] + '"';
@@ -315,6 +313,9 @@ String WebCTSensors::GenerateStatusJSON()
 //code to execute during initialization and reinitialization of the app
 bool WebCTSensors::AppInit(bool reInit)
 {
+  //Stop Publish
+  _publishTicker.detach();
+
   for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
   {
     if (reInit)
@@ -327,13 +328,8 @@ bool WebCTSensors::AppInit(bool reInit)
     _requestResults[i] = 0;
   }
 
-  if (reInit && _sendTimer.getNumTimers())
-    _sendTimer.deleteTimer(0);
-
-  if (ha.enabled)
-    _sendTimer.setInterval(SEND_PERIOD, [this]() {
-      this->SendTimerTick();
-    });
+  if (_ha.enabled)
+    _publishTicker.attach(SEND_PERIOD, [this]() { this->_needPublish = true; });
 
   //"flush" serial buffer input
   while (Serial.available())
@@ -386,7 +382,6 @@ void WebCTSensors::AppInitWebServer(AsyncWebServer &server, bool &shouldReboot, 
 //Run for timer
 void WebCTSensors::AppRun()
 {
-
   //if we receive data from ATTiny
   if (Serial.available())
   {
@@ -399,32 +394,35 @@ void WebCTSensors::AppRun()
     else if (c == '\r')
     {
 
-      byte i = serialBuffer[0] - '1';
-      if (i > NUMBER_OF_CTSENSOR - 1 || serialBuffer[1] != ':')
+      byte i = _serialBuffer[0] - '1';
+      if (i > NUMBER_OF_CTSENSOR - 1 || _serialBuffer[1] != ':')
       {
-        serialBuffer[0] = 0;
+        _serialBuffer[0] = 0;
         return;
       }
 
       //convert text to float and pass it to newI
-      float newI = atof(serialBuffer + 2) * clampRatios[i] / 1000.0;
+      float newI = atof(_serialBuffer + 2) * clampRatios[i] / 1000.0;
       newI -= noiseCancellation[i];
       if (newI <= 0.0)
         newI = 0.0;
       _ctSensors[i].NewIFromCTSensor(newI);
-      serialBuffer[0] = 0;
+      _serialBuffer[0] = 0;
     }
-    //else we need to put this char in serialBuffer
+    //else we need to put this char in _serialBuffer
     else
     {
-      serialBuffer[strlen(serialBuffer) + 1] = 0;
-      serialBuffer[strlen(serialBuffer)] = c;
+      _serialBuffer[strlen(_serialBuffer) + 1] = 0;
+      _serialBuffer[strlen(_serialBuffer)] = c;
     }
   }
 
-  //Run sendTimer
-  if (ha.enabled)
-    _sendTimer.run();
+  if (_needPublish)
+  {
+    _needPublish = false;
+    Serial.println(F("PublishTick"));
+    PublishTick();
+  }
 }
 
 //------------------------------------------
