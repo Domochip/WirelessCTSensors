@@ -1,0 +1,5 @@
+(sym_lib_table
+  (lib (name vcc2)(type Legacy)(uri ${KIPRJMOD}/lib/vcc2.lib)(options "")(descr ""))
+  (lib (name ESP8266)(type Legacy)(uri ${KIPRJMOD}/lib/ESP8266.lib)(options "")(descr ""))
+  (lib (name jack_trs_5pins)(type Legacy)(uri ${KIPRJMOD}/lib/jack_trs_5pins.lib)(options "")(descr ""))
+)
