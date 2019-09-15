@@ -5,10 +5,6 @@
 
 //DomoChip Informations
 //------------Compile for 1M 64K SPIFFS------------
-//Configuration Web Pages :
-//http://IP/
-//http://IP/config
-//http://IP/fw
 
 //include Application header file
 #include "WirelessCTSensors.h"
@@ -17,12 +13,10 @@
 #define APPLICATION1_DESC "DomoChip Wireless CT Sensors"
 #define APPLICATION1_CLASS WebCTSensors
 
-#define VERSION_NUMBER "3.1.7"
+#define VERSION_NUMBER "3.2.0"
 
 #define DEFAULT_AP_SSID "WirelessCTSensors"
 #define DEFAULT_AP_PSK "PasswordCT"
-
-#define SEND_PERIOD 60000
 
 //Enable developper mode (SPIFFS editor)
 #define DEVELOPPER_MODE 0

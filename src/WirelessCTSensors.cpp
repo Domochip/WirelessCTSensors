@@ -3,110 +3,166 @@
 //Please, have a look at Main.h for information and configuration of Arduino project
 
 //------------------------------------------
+// subscribe to MQTT topic after connection
+bool WebCTSensors::MqttConnect(bool init)
+{
+  if (!WiFi.isConnected())
+    return false;
+
+  char sn[9];
+  sprintf_P(sn, PSTR("%08x"), ESP.getChipId());
+
+  //generate clientID
+  String clientID(F(APPLICATION1_NAME));
+  clientID += sn;
+
+  //Connect
+  if (!_ha.mqtt.username[0])
+    _mqttClient.connect(clientID.c_str());
+  else
+    _mqttClient.connect(clientID.c_str(), _ha.mqtt.username, _ha.mqtt.password);
+
+  if (_mqttClient.connected())
+  {
+
+    //Subscribe to needed topic
+    //prepare topic subscription
+    String subscribeTopic = _ha.mqtt.generic.baseTopic;
+    //check for final slash
+    if (subscribeTopic.length() && subscribeTopic.charAt(subscribeTopic.length() - 1) != '/')
+      subscribeTopic += '/';
+
+    switch (_ha.mqtt.type)
+    {
+    case HA_MQTT_GENERIC:
+      //complete the topic
+      subscribeTopic += F("$CTNumber$");
+      break;
+    }
+
+    //Replace placeholders
+    if (subscribeTopic.indexOf(F("$sn$")) != -1)
+      subscribeTopic.replace(F("$sn$"), sn);
+
+    if (subscribeTopic.indexOf(F("$mac$")) != -1)
+      subscribeTopic.replace(F("$mac$"), WiFi.macAddress());
+
+    if (subscribeTopic.indexOf(F("$model$")) != -1)
+      subscribeTopic.replace(F("$model$"), APPLICATION1_NAME);
+
+    String thisSensorTopic;
+
+    //for each CT sensors
+    for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
+    {
+      //wich is enabled
+      if (clampRatios[i] != 0.0)
+      {
+        thisSensorTopic = subscribeTopic;
+
+        if (thisSensorTopic.indexOf(F("$CTNumber$")) != -1)
+          thisSensorTopic.replace(F("$CTNumber$"), String(i + 1));
+
+        _mqttClient.subscribe(thisSensorTopic.c_str());
+      }
+    }
+  }
+
+  return _mqttClient.connected();
+}
+
+//------------------------------------------
+//Callback used when an MQTT message arrived
+void WebCTSensors::MqttCallback(char *topic, uint8_t *payload, unsigned int length)
+{
+  //parse CTNumber
+  byte ctNumber = topic[strlen(topic) - 1] - '1';
+
+  //check that counter is not yet initialized
+  if (ctNumber >= NUMBER_OF_CTSENSOR || _ctSensors[ctNumber].GetReady() || length < 1)
+    return;
+
+  unsigned long initialCounter = 0;
+  for (byte i = 0; i < length; i++)
+    //check that payload is only numbers
+    if (isdigit(payload[i]))
+      initialCounter = initialCounter * 10 + (payload[i] - '0'); // convert payload
+    else
+      return; //bad payload
+
+  //initialize counter
+  _ctSensors[ctNumber].SetCounterFromRemote(initialCounter);
+}
+
+//------------------------------------------
 //Function Called by timer when Tick
 void WebCTSensors::PublishTick()
 {
+  //if Home Automation upload not enabled then return
+  if (_ha.protocol == HA_PROTO_DISABLED)
+    return;
 
-  for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
+  //----- MQTT Protocol configured -----
+  if (_ha.protocol == HA_PROTO_MQTT)
   {
-
-    //if CTSensor is not ready, then request for initial value in Home Automation
-    if (clampRatios[i] != 0.0 && !_ctSensors[i].GetReady() && _ha.clampIds[i] != 0)
+    //if we are connected
+    if (_mqttClient.connected())
     {
+      //At this point, MQTT is enabled and connected, first PublishTick occurs after ha upload period
+      //initial counter values should have been received through MqttCallback
+      //if a counter is not ready/initialized, we assume that there is no value to start with
+      //for each CT sensor
+      for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
+        if (clampRatios[i] != 0.0 && !_ctSensors[i].GetReady()) //if it's enabled and not ready
+          _ctSensors[i].SetCounterFromRemote(0);                //initialize it with 0
 
-      String completeURI;
+      //prepare topic
+      String completeTopic = _ha.mqtt.generic.baseTopic;
 
-      switch (_ha.enabled)
+      //check for final slash
+      if (completeTopic.length() && completeTopic.charAt(completeTopic.length() - 1) != '/')
+        completeTopic += '/';
+
+      switch (_ha.mqtt.type)
       {
-      case 1:
-        _requests[i] = String(F("&type=")) + _ha.jeedom.commandType + F("&id=") + _ha.clampIds[i];
-        completeURI = completeURI + F("http") + (_ha.tls ? F("s") : F("")) + F("://") + _ha.hostname + F("/core/api/jeeApi.php?apikey=") + _ha.jeedom.apiKey + _requests[i];
+      case HA_MQTT_GENERIC:
+        //complete the topic
+        completeTopic += F("$CTNumber$");
         break;
       }
-      //create HTTP request
-      WiFiClient client;
-      WiFiClientSecure clientSecure;
-      HTTPClient http;
 
-      //if tls is enabled or not, we need to provide certificate fingerPrint
-      if (!_ha.tls)
-        http.begin(client, completeURI);
-      else
+      //Replace placeholders
+      if (completeTopic.indexOf(F("$sn$")) != -1)
       {
-        char fpStr[41];
-        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, _ha.fingerPrint));
-        http.begin(clientSecure, completeURI);
+        char sn[9];
+        sprintf_P(sn, PSTR("%08x"), ESP.getChipId());
+        completeTopic.replace(F("$sn$"), sn);
       }
 
-      _requestResults[i] = http.GET();
-      if (_requestResults[i] == 200)
-      {
-        uint16_t units = 0;
-        uint16_t thousands = 0;
-        uint16_t millions = 0;
-        uint16_t billions = 0;
-        unsigned long payloadValue = 0;
+      if (completeTopic.indexOf(F("$mac$")) != -1)
+        completeTopic.replace(F("$mac$"), WiFi.macAddress());
 
-        switch (_ha.enabled)
+      if (completeTopic.indexOf(F("$model$")) != -1)
+        completeTopic.replace(F("$model$"), APPLICATION1_NAME);
+
+      _haSendResult = true;
+      String thisSensorTopic;
+
+      //for each CT sensors
+      for (byte i = 0; i < NUMBER_OF_CTSENSOR && _haSendResult; i++)
+      {
+        if (clampRatios[i] != 0.0) //which is enabled
         {
-        case 1:
-          String payload = http.getString();
+          //copy completeTopic in order to "complete" it ...
+          thisSensorTopic = completeTopic;
 
-          yield();
-          units = payload.substring(payload.length() >= 3 ? payload.length() - 3 : 0).toInt();
-          if (payload.length() > 3)
-            thousands = payload.substring(payload.length() >= 6 ? payload.length() - 6 : 0, payload.length() - 3).toInt();
-          if (payload.length() > 6)
-            millions = payload.substring(payload.length() >= 9 ? payload.length() - 9 : 0, payload.length() - 6).toInt();
-          if (payload.length() > 9)
-            billions = payload.substring(payload.length() >= 12 ? payload.length() - 12 : 0, payload.length() - 9).toInt();
-          break;
+          if (thisSensorTopic.indexOf(F("$CTNumber$")) != -1)
+            thisSensorTopic.replace(F("$CTNumber$"), String(i + 1));
+
+          //send USING RETAIN
+          _haSendResult = _mqttClient.publish(thisSensorTopic.c_str(), String(_ctSensors[i].GetCounterUpdated()).c_str(), true); //USING RETAIN
         }
-
-        http.end();
-
-        payloadValue = billions;
-        payloadValue = (payloadValue * 1000) + millions;
-        payloadValue = (payloadValue * 1000) + thousands;
-        payloadValue = (payloadValue * 1000) + units;
-
-        _ctSensors[i].SetCounterFromRemote(payloadValue);
       }
-    }
-
-    //this time ctSensor is ready
-    if (clampRatios[i] != 0.0 && _ctSensors[i].GetReady() && _ha.clampIds[i] != 0)
-    {
-
-      String completeURI;
-
-      switch (_ha.enabled)
-      {
-      case 1:
-        _requests[i] = String(F("&type=")) + _ha.jeedom.commandType + F("&id=") + _ha.clampIds[i] + F("&value=") + _ctSensors[i].GetCounterUpdated();
-        completeURI = completeURI + F("http") + (_ha.tls ? F("s") : F("")) + F("://") + _ha.hostname + F("/core/api/jeeApi.php?apikey=") + _ha.jeedom.apiKey + _requests[i];
-        break;
-      }
-
-      //create HTTP request
-      HTTPClient http;
-
-      //if tls is enabled or not, we need to provide certificate fingerPrint
-      if (!_ha.tls)
-      {
-        WiFiClient client;
-        http.begin(client, completeURI);
-      }
-      else
-      {
-        WiFiClientSecure clientSecure;
-        char fpStr[41];
-        clientSecure.setFingerprint(Utils::FingerPrintA2S(fpStr, _ha.fingerPrint));
-        http.begin(clientSecure, completeURI);
-      }
-
-      _requestResults[i] = http.GET();
-      http.end();
     }
   }
 }
@@ -123,39 +179,20 @@ void WebCTSensors::SetConfigDefaultValues()
   noiseCancellation[1] = 0.0;
   noiseCancellation[2] = 0.0;
 
-  _ha.enabled = 0;
-  _ha.tls = false;
-  memset(_ha.fingerPrint, 0, 20);
+  _ha.protocol = HA_PROTO_DISABLED;
   _ha.hostname[0] = 0;
-  _ha.clampIds[0] = 0;
-  _ha.clampIds[1] = 0;
-  _ha.clampIds[2] = 0;
-  _ha.jeedom.apiKey[0] = 0;
-  _ha.jeedom.commandType[0] = 0;
+  _ha.uploadPeriod = 60;
+
+  _ha.mqtt.type = HA_MQTT_GENERIC;
+  _ha.mqtt.port = 1883;
+  _ha.mqtt.username[0] = 0;
+  _ha.mqtt.password[0] = 0;
+  _ha.mqtt.generic.baseTopic[0] = 0;
 };
 //------------------------------------------
 //Parse JSON object into configuration properties
 void WebCTSensors::ParseConfigJSON(DynamicJsonDocument &doc)
 {
-  //Retrocompatibility block to be removed after v3.1.5 --
-  if (!doc["je"].isNull())
-    _ha.enabled = doc["je"] ? 1 : 0;
-  if (!doc["jt"].isNull())
-    _ha.tls = doc["jt"];
-  if (!doc["jh"].isNull())
-    strlcpy(_ha.hostname, doc["jh"], sizeof(_ha.hostname));
-  if (!doc["ct"].isNull())
-    strlcpy(_ha.jeedom.commandType, doc["ct"], sizeof(_ha.jeedom.commandType));
-  if (!doc["c1"].isNull())
-    _ha.clampIds[0] = doc["c1"];
-  if (!doc["c2"].isNull())
-    _ha.clampIds[1] = doc["c2"];
-  if (!doc["c3"].isNull())
-    _ha.clampIds[2] = doc["c3"];
-  if (!doc["jfp"].isNull())
-    Utils::FingerPrintS2A(_ha.fingerPrint, doc["jfp"]);
-  // --
-
   if (!doc["cr1"].isNull())
     clampRatios[0] = doc["cr1"];
   if (!doc["cnc1"].isNull())
@@ -169,25 +206,24 @@ void WebCTSensors::ParseConfigJSON(DynamicJsonDocument &doc)
   if (!doc["cnc3"].isNull())
     noiseCancellation[2] = doc["cnc3"];
 
-  if (!doc[F("hae")].isNull())
-    _ha.enabled = doc[F("hae")];
-  if (!doc[F("hatls")].isNull())
-    _ha.tls = doc[F("hatls")];
-  if (!doc[F("hah")].isNull())
-    strlcpy(_ha.hostname, doc["hah"], sizeof(_ha.hostname));
-  if (!doc[F("hacid1")].isNull())
-    _ha.clampIds[0] = doc[F("hacid1")];
-  if (!doc[F("hacid2")].isNull())
-    _ha.clampIds[1] = doc[F("hacid2")];
-  if (!doc[F("hacid3")].isNull())
-    _ha.clampIds[2] = doc[F("hacid3")];
-  if (!doc["hafp"].isNull())
-    Utils::FingerPrintS2A(_ha.fingerPrint, doc["hafp"]);
+  if (!doc[F("haproto")].isNull())
+    _ha.protocol = doc[F("haproto")];
+  if (!doc[F("hahost")].isNull())
+    strlcpy(_ha.hostname, doc[F("hahost")], sizeof(_ha.hostname));
+  if (!doc[F("haupperiod")].isNull())
+    _ha.uploadPeriod = doc[F("haupperiod")];
 
-  if (!doc["ja"].isNull())
-    strlcpy(_ha.jeedom.apiKey, doc["ja"], sizeof(_ha.jeedom.apiKey));
-  if (!doc["jct"].isNull())
-    strlcpy(_ha.jeedom.commandType, doc["jct"], sizeof(_ha.jeedom.commandType));
+  if (!doc[F("hamtype")].isNull())
+    _ha.mqtt.type = doc[F("hamtype")];
+  if (!doc[F("hamport")].isNull())
+    _ha.mqtt.port = doc[F("hamport")];
+  if (!doc[F("hamu")].isNull())
+    strlcpy(_ha.mqtt.username, doc[F("hamu")], sizeof(_ha.mqtt.username));
+  if (!doc[F("hamp")].isNull())
+    strlcpy(_ha.mqtt.password, doc[F("hamp")], sizeof(_ha.mqtt.password));
+
+  if (!doc[F("hamgbt")].isNull())
+    strlcpy(_ha.mqtt.generic.baseTopic, doc[F("hamgbt")], sizeof(_ha.mqtt.generic.baseTopic));
 };
 //------------------------------------------
 //Parse HTTP POST parameters in request into configuration properties
@@ -206,43 +242,48 @@ bool WebCTSensors::ParseConfigWebRequest(AsyncWebServerRequest *request)
   if (request->hasParam(F("cnc3"), true))
     noiseCancellation[2] = request->getParam(F("cnc3"), true)->value().toFloat();
 
-  if (request->hasParam(F("hae"), true))
-    _ha.enabled = request->getParam(F("hae"), true)->value().toInt();
+  //Parse HA protocol
+  if (request->hasParam(F("haproto"), true))
+    _ha.protocol = request->getParam(F("haproto"), true)->value().toInt();
 
-  //if an home Automation system is enabled then get common param
-  if (_ha.enabled)
+  //if an home Automation protocol has been selected then get common param
+  if (_ha.protocol != HA_PROTO_DISABLED)
   {
-    if (request->hasParam(F("hatls"), true))
-      _ha.tls = (request->getParam(F("hatls"), true)->value() == F("on"));
-    else
-      _ha.tls = false;
-    if (request->hasParam(F("hah"), true) && request->getParam(F("hah"), true)->value().length() < sizeof(_ha.hostname))
-      strcpy(_ha.hostname, request->getParam(F("hah"), true)->value().c_str());
-    if (request->hasParam(F("hacid1"), true))
-      _ha.clampIds[0] = request->getParam(F("hacid1"), true)->value().toInt();
-    if (request->hasParam(F("hacid2"), true))
-      _ha.clampIds[1] = request->getParam(F("hacid2"), true)->value().toInt();
-    if (request->hasParam(F("hacid3"), true))
-      _ha.clampIds[2] = request->getParam(F("hacid3"), true)->value().toInt();
-    if (request->hasParam(F("hafp"), true))
-      Utils::FingerPrintS2A(_ha.fingerPrint, request->getParam(F("hafp"), true)->value().c_str());
+    if (request->hasParam(F("hahost"), true) && request->getParam(F("hahost"), true)->value().length() < sizeof(_ha.hostname))
+      strcpy(_ha.hostname, request->getParam(F("hahost"), true)->value().c_str());
+    if (request->hasParam(F("haupperiod"), true))
+      _ha.uploadPeriod = request->getParam(F("haupperiod"), true)->value().toInt();
   }
 
   //Now get specific param
-  switch (_ha.enabled)
+  switch (_ha.protocol)
   {
-  case 1: //Jeedom
-    char tempApiKey[48 + 1];
-    //put apiKey into temporary one for predefpassword
-    if (request->hasParam(F("ja"), true) && request->getParam(F("ja"), true)->value().length() < sizeof(tempApiKey))
-      strcpy(tempApiKey, request->getParam(F("ja"), true)->value().c_str());
-    if (request->hasParam(F("jct"), true))
-      strncpy(_ha.jeedom.commandType, request->getParam(F("jct"), true)->value().c_str(), sizeof(_ha.jeedom.commandType) - 1);
-    //check for previous apiKey (there is a predefined special password that mean to keep already saved one)
-    if (strcmp_P(tempApiKey, appDataPredefPassword))
-      strcpy(_ha.jeedom.apiKey, tempApiKey);
-    if (!_ha.hostname[0] || !_ha.jeedom.apiKey[0])
-      _ha.enabled = 0;
+  case HA_PROTO_MQTT:
+
+    if (request->hasParam(F("hamtype"), true))
+      _ha.mqtt.type = request->getParam(F("hamtype"), true)->value().toInt();
+    if (request->hasParam(F("hamport"), true))
+      _ha.mqtt.port = request->getParam(F("hamport"), true)->value().toInt();
+    if (request->hasParam(F("hamu"), true) && request->getParam(F("hamu"), true)->value().length() < sizeof(_ha.mqtt.username))
+      strcpy(_ha.mqtt.username, request->getParam(F("hamu"), true)->value().c_str());
+    char tempPassword[64 + 1] = {0};
+    //put MQTT password into temporary one for predefpassword
+    if (request->hasParam(F("hamp"), true) && request->getParam(F("hamp"), true)->value().length() < sizeof(tempPassword))
+      strcpy(tempPassword, request->getParam(F("hamp"), true)->value().c_str());
+    //check for previous password (there is a predefined special password that mean to keep already saved one)
+    if (strcmp_P(tempPassword, appDataPredefPassword))
+      strcpy(_ha.mqtt.password, tempPassword);
+
+    switch (_ha.mqtt.type)
+    {
+    case HA_MQTT_GENERIC:
+      if (request->hasParam(F("hamgbt"), true) && request->getParam(F("hamgbt"), true)->value().length() < sizeof(_ha.mqtt.generic.baseTopic))
+        strcpy(_ha.mqtt.generic.baseTopic, request->getParam(F("hamgbt"), true)->value().c_str());
+
+      if (!_ha.hostname[0] || !_ha.mqtt.generic.baseTopic[0])
+        _ha.protocol = HA_PROTO_DISABLED;
+      break;
+    }
     break;
   }
 
@@ -254,7 +295,6 @@ String WebCTSensors::GenerateConfigJSON(bool forSaveFile = false)
 {
   String gc('{');
 
-  char fpStr[60];
   gc = gc + F("\"cr1\":") + clampRatios[0];
   gc = gc + F(",\"cr2\":") + clampRatios[1];
   gc = gc + F(",\"cr3\":") + clampRatios[2];
@@ -262,22 +302,23 @@ String WebCTSensors::GenerateConfigJSON(bool forSaveFile = false)
   gc = gc + F(",\"cnc2\":") + noiseCancellation[1];
   gc = gc + F(",\"cnc3\":") + noiseCancellation[2];
 
-  gc = gc + F(",\"hae\":") + _ha.enabled;
-  gc = gc + F(",\"hatls\":") + _ha.tls;
-  gc = gc + F(",\"hah\":\"") + _ha.hostname + '"';
-  gc = gc + F(",\"hacid1\":") + _ha.clampIds[0];
-  gc = gc + F(",\"hacid2\":") + _ha.clampIds[1];
-  gc = gc + F(",\"hacid3\":") + _ha.clampIds[2];
-  gc = gc + F(",\"hafp\":\"") + Utils::FingerPrintA2S(fpStr, _ha.fingerPrint, forSaveFile ? 0 : ':') + '"';
+  gc = gc + F(",\"haproto\":") + _ha.protocol;
+  gc = gc + F(",\"hahost\":\"") + _ha.hostname + '"';
+  gc = gc + F(",\"haupperiod\":") + _ha.uploadPeriod;
 
-  if (forSaveFile)
+  //if for WebPage or protocol selected is MQTT
+  if (!forSaveFile || _ha.protocol == HA_PROTO_MQTT)
   {
-    if (_ha.enabled == 1)
-      gc = gc + F(",\"ja\":\"") + _ha.jeedom.apiKey + '"';
+    gc = gc + F(",\"hamtype\":") + _ha.mqtt.type;
+    gc = gc + F(",\"hamport\":") + _ha.mqtt.port;
+    gc = gc + F(",\"hamu\":\"") + _ha.mqtt.username + '"';
+    if (forSaveFile)
+      gc = gc + F(",\"hamp\":\"") + _ha.mqtt.password + '"';
+    else
+      gc = gc + F(",\"hamp\":\"") + (__FlashStringHelper *)appDataPredefPassword + '"'; //predefined special password (mean to keep already saved one)
+
+    gc = gc + F(",\"hamgbt\":\"") + _ha.mqtt.generic.baseTopic + '"';
   }
-  else
-    gc = gc + F(",\"ja\":\"") + (__FlashStringHelper *)appDataPredefPassword + '"'; //predefined special password (mean to keep already saved one)
-  gc = gc + F(",\"jct\":\"") + _ha.jeedom.commandType + '"';
 
   gc = gc + '}';
 
@@ -298,12 +339,52 @@ String WebCTSensors::GenerateStatusJSON()
   gs = gs + F(",\"c1\":") + _ctSensors[0].GetCounter();
   gs = gs + F(",\"c2\":") + _ctSensors[1].GetCounter();
   gs = gs + F(",\"c3\":") + _ctSensors[2].GetCounter();
-  if (_ha.enabled)
-    for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
+
+  gs = gs + F(",\"has1\":\"");
+  switch (_ha.protocol)
+  {
+  case HA_PROTO_DISABLED:
+    gs = gs + F("Disabled");
+    break;
+  case HA_PROTO_MQTT:
+    gs = gs + F("MQTT Connection State : ");
+    switch (_mqttClient.state())
     {
-      gs = gs + F(",\"lr") + (i + 1) + F("\":\"") + _requests[i] + '"';
-      gs = gs + F(",\"lrr") + (i + 1) + F("\":") + _requestResults[i];
+    case MQTT_CONNECTION_TIMEOUT:
+      gs = gs + F("Timed Out");
+      break;
+    case MQTT_CONNECTION_LOST:
+      gs = gs + F("Lost");
+      break;
+    case MQTT_CONNECT_FAILED:
+      gs = gs + F("Failed");
+      break;
+    case MQTT_CONNECTED:
+      gs = gs + F("Connected");
+      break;
+    case MQTT_CONNECT_BAD_PROTOCOL:
+      gs = gs + F("Bad Protocol Version");
+      break;
+    case MQTT_CONNECT_BAD_CLIENT_ID:
+      gs = gs + F("Incorrect ClientID ");
+      break;
+    case MQTT_CONNECT_UNAVAILABLE:
+      gs = gs + F("Server Unavailable");
+      break;
+    case MQTT_CONNECT_BAD_CREDENTIALS:
+      gs = gs + F("Bad Credentials");
+      break;
+    case MQTT_CONNECT_UNAUTHORIZED:
+      gs = gs + F("Connection Unauthorized");
+      break;
     }
+
+    if (_mqttClient.state() == MQTT_CONNECTED)
+      gs = gs + F("\",\"has2\":\"Last Publish Result : ") + (_haSendResult ? F("OK") : F("Failed"));
+
+    break;
+  }
+  gs += '"';
 
   gs += '}';
 
@@ -316,20 +397,28 @@ bool WebCTSensors::AppInit(bool reInit)
   //Stop Publish
   _publishTicker.detach();
 
-  for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
+  //Stop MQTT Reconnect
+  _mqttReconnectTicker.detach();
+  if (_mqttClient.connected()) //Issue #598 : disconnect() crash if client not yet set
+    _mqttClient.disconnect();
+
+  //if MQTT used so configure it
+  if (_ha.protocol == HA_PROTO_MQTT)
   {
-    if (reInit)
-      _ctSensors[i].Reset();
+    //setup MQTT client
+    _mqttClient.setClient(_wifiClient).setServer(_ha.hostname, _ha.mqtt.port).setCallback(std::bind(&WebCTSensors::MqttCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
-    if (!reInit)
-      _requests[i].reserve(20);
-
-    _requests[i] = "";
-    _requestResults[i] = 0;
+    //Connect
+    MqttConnect();
   }
 
-  if (_ha.enabled)
-    _publishTicker.attach(SEND_PERIOD, [this]() { this->_needPublish = true; });
+  if (reInit)
+    for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
+      _ctSensors[i].Reset();
+
+  //if HA and upload period != 0, then start ticker
+  if (_ha.protocol != HA_PROTO_DISABLED && _ha.uploadPeriod != 0)
+    _publishTicker.attach(_ha.uploadPeriod, [this]() { this->_needPublish = true; });
 
   //"flush" serial buffer input
   while (Serial.available())
@@ -416,6 +505,27 @@ void WebCTSensors::AppRun()
       _serialBuffer[strlen(_serialBuffer)] = c;
     }
   }
+
+  if (_needMqttReconnect)
+  {
+    _needMqttReconnect = false;
+    Serial.print(F("MQTT Reconnection : "));
+    if (MqttConnect())
+      Serial.println(F("OK"));
+    else
+      Serial.println(F("Failed"));
+  }
+
+  //if MQTT required but not connected and reconnect ticker not started
+  if (_ha.protocol == HA_PROTO_MQTT && !_mqttClient.connected() && !_mqttReconnectTicker.active())
+  {
+    Serial.println(F("MQTT Disconnected"));
+    //set Ticker to reconnect after 20 or 60 sec (Wifi connected or not)
+    _mqttReconnectTicker.once_scheduled((WiFi.isConnected() ? 20 : 60), [this]() { _needMqttReconnect = true; _mqttReconnectTicker.detach(); });
+  }
+
+  if (_ha.protocol == HA_PROTO_MQTT)
+    _mqttClient.loop();
 
   if (_needPublish)
   {
