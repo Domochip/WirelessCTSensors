@@ -6,9 +6,7 @@
 //DomoChip Informations
 //------------Compile for 1M 64K SPIFFS------------
 
-//include Application header file
-#include "WirelessCTSensors.h"
-
+#define APPLICATION1_HEADER "WirelessCTSensors.h"
 #define APPLICATION1_NAME "WCTSensors"
 #define APPLICATION1_DESC "DomoChip Wireless CT Sensors"
 #define APPLICATION1_CLASS WebCTSensors
@@ -22,7 +20,10 @@
 #define DEVELOPPER_MODE 0
 
 //Pin RX used to receive CTSensorsReader infos @ 57600bauds
-#define SERIAL_SPEED 57600
+//Log Serial Object
+#define LOG_SERIAL Serial
+//Choose Log Serial Speed
+#define LOG_SERIAL_SPEED 57600
 
 //Choose Pin used to boot in Rescue Mode
 #define RESCUE_BTN_PIN 2
