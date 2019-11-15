@@ -1,12 +1,9 @@
 #ifndef WebCTSensors_h
 #define WebCTSensors_h
 
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-
 #include "Main.h"
 #include "base\Utils.h"
+#include "base\MQTTMan.h"
 #include "base\Application.h"
 
 const char appDataPredefPassword[] PROGMEM = "ewcXoCt4HHjZUvY1";
@@ -15,7 +12,6 @@ const char appDataPredefPassword[] PROGMEM = "ewcXoCt4HHjZUvY1";
 #include "data\config1.html.gz.h"
 
 #include <ESP8266HTTPClient.h>
-#include <PubSubClient.h>
 #include <Ticker.h>
 #include "CTSensor.h"
 
@@ -62,11 +58,10 @@ private:
 
   bool _needPublish = false;
   Ticker _publishTicker;
-  PubSubClient _mqttClient;
-  bool _needMqttReconnect = false;
-  Ticker _mqttReconnectTicker;
+  
+  MQTTMan m_mqttMan;
 
-  bool MqttConnect(bool init = false);
+  void MqttConnectedCallback(MQTTMan *mqttMan, bool firstConnection);
   void MqttCallback(char *topic, uint8_t *payload, unsigned int length);
   void PublishTick();
 
