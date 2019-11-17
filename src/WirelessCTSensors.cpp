@@ -9,9 +9,9 @@ void WebCTSensors::MqttConnectedCallback(MQTTMan *mqttMan, bool firstConnection)
   //Subscribe to needed topic
   //prepare topic subscription
   String subscribeTopic = _ha.mqtt.generic.baseTopic;
-  //check for final slash
-  if (subscribeTopic.length() && subscribeTopic.charAt(subscribeTopic.length() - 1) != '/')
-    subscribeTopic += '/';
+
+  //Replace placeholders
+  MQTTMan::prepareTopic(subscribeTopic);
 
   switch (_ha.mqtt.type)
   {
@@ -20,20 +20,6 @@ void WebCTSensors::MqttConnectedCallback(MQTTMan *mqttMan, bool firstConnection)
     subscribeTopic += F("$CTNumber$");
     break;
   }
-
-  //Replace placeholders
-  if (subscribeTopic.indexOf(F("$sn$")) != -1)
-  {
-    char sn[9];
-    sprintf_P(sn, PSTR("%08x"), ESP.getChipId());
-    subscribeTopic.replace(F("$sn$"), sn);
-  }
-
-  if (subscribeTopic.indexOf(F("$mac$")) != -1)
-    subscribeTopic.replace(F("$mac$"), WiFi.macAddress());
-
-  if (subscribeTopic.indexOf(F("$model$")) != -1)
-    subscribeTopic.replace(F("$model$"), APPLICATION1_NAME);
 
   String thisSensorTopic;
 
@@ -101,9 +87,8 @@ void WebCTSensors::PublishTick()
       //prepare topic
       String completeTopic = _ha.mqtt.generic.baseTopic;
 
-      //check for final slash
-      if (completeTopic.length() && completeTopic.charAt(completeTopic.length() - 1) != '/')
-        completeTopic += '/';
+      //Replace placeholders
+      MQTTMan::prepareTopic(completeTopic);
 
       switch (_ha.mqtt.type)
       {
@@ -112,20 +97,6 @@ void WebCTSensors::PublishTick()
         completeTopic += F("$CTNumber$");
         break;
       }
-
-      //Replace placeholders
-      if (completeTopic.indexOf(F("$sn$")) != -1)
-      {
-        char sn[9];
-        sprintf_P(sn, PSTR("%08x"), ESP.getChipId());
-        completeTopic.replace(F("$sn$"), sn);
-      }
-
-      if (completeTopic.indexOf(F("$mac$")) != -1)
-        completeTopic.replace(F("$mac$"), WiFi.macAddress());
-
-      if (completeTopic.indexOf(F("$model$")) != -1)
-        completeTopic.replace(F("$model$"), APPLICATION1_NAME);
 
       _haSendResult = true;
       String thisSensorTopic;
