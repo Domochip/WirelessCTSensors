@@ -16,6 +16,9 @@
 #define DEFAULT_AP_SSID "WirelessCTSensors"
 #define DEFAULT_AP_PSK "PasswordCT"
 
+//Enable status webpage EventSource
+#define ENABLE_STATUS_EVENTSOURCE 0
+
 //Enable developper mode (SPIFFS editor)
 #define DEVELOPPER_MODE 0
 
