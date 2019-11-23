@@ -22,14 +22,14 @@ class CTSensor {
 
 
   public:
-    void NewIFromCTSensor(float I);
-    unsigned long GetCounterUpdated();
-    float GetCurrentI();
-    float GetAverageI();
-    unsigned long GetCounter(); //used for status only
-    void SetCounterFromRemote(unsigned long remoteCounter);
-    bool GetReady();
-    void Reset();
+    void newIFromCTSensor(float I);
+    unsigned long getCounterUpdated();
+    float getCurrentI();
+    float getAverageI();
+    unsigned long getCounter(); //used for status only
+    void setCounterFromRemote(unsigned long remoteCounter);
+    bool getReady();
+    void reset();
 };
 
 #endif

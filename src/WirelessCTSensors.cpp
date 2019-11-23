@@ -4,7 +4,7 @@
 
 //------------------------------------------
 // subscribe to MQTT topic after connection
-void WebCTSensors::MqttConnectedCallback(MQTTMan *mqttMan, bool firstConnection)
+void WebCTSensors::mqttConnectedCallback(MQTTMan *mqttMan, bool firstConnection)
 {
   //Subscribe to needed topic
   //prepare topic subscription
@@ -41,13 +41,13 @@ void WebCTSensors::MqttConnectedCallback(MQTTMan *mqttMan, bool firstConnection)
 
 //------------------------------------------
 //Callback used when an MQTT message arrived
-void WebCTSensors::MqttCallback(char *topic, uint8_t *payload, unsigned int length)
+void WebCTSensors::mqttCallback(char *topic, uint8_t *payload, unsigned int length)
 {
   //parse CTNumber
   byte ctNumber = topic[strlen(topic) - 1] - '1';
 
   //check that counter is not yet initialized
-  if (ctNumber >= NUMBER_OF_CTSENSOR || _ctSensors[ctNumber].GetReady() || length < 1)
+  if (ctNumber >= NUMBER_OF_CTSENSOR || _ctSensors[ctNumber].getReady() || length < 1)
     return;
 
   unsigned long initialCounter = 0;
@@ -59,12 +59,12 @@ void WebCTSensors::MqttCallback(char *topic, uint8_t *payload, unsigned int leng
       return; //bad payload
 
   //initialize counter
-  _ctSensors[ctNumber].SetCounterFromRemote(initialCounter);
+  _ctSensors[ctNumber].setCounterFromRemote(initialCounter);
 }
 
 //------------------------------------------
 //Function Called by timer when Tick
-void WebCTSensors::PublishTick()
+void WebCTSensors::publishTick()
 {
   //if Home Automation upload not enabled then return
   if (_ha.protocol == HA_PROTO_DISABLED)
@@ -74,15 +74,15 @@ void WebCTSensors::PublishTick()
   if (_ha.protocol == HA_PROTO_MQTT)
   {
     //if we are connected
-    if (m_mqttMan.connected())
+    if (_mqttMan.connected())
     {
       //At this point, MQTT is enabled and connected, first PublishTick occurs after ha upload period
       //initial counter values should have been received through MqttCallback
       //if a counter is not ready/initialized, we assume that there is no value to start with
       //for each CT sensor
       for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
-        if (clampRatios[i] != 0.0 && !_ctSensors[i].GetReady()) //if it's enabled and not ready
-          _ctSensors[i].SetCounterFromRemote(0);                //initialize it with 0
+        if (clampRatios[i] != 0.0 && !_ctSensors[i].getReady()) //if it's enabled and not ready
+          _ctSensors[i].setCounterFromRemote(0);                //initialize it with 0
 
       //prepare topic
       String completeTopic = _ha.mqtt.generic.baseTopic;
@@ -113,7 +113,7 @@ void WebCTSensors::PublishTick()
             thisSensorTopic.replace(F("$CTNumber$"), String(i + 1));
 
           //send USING RETAIN
-          _haSendResult = m_mqttMan.publish(thisSensorTopic.c_str(), String(_ctSensors[i].GetCounterUpdated()).c_str(), true); //USING RETAIN
+          _haSendResult = _mqttMan.publish(thisSensorTopic.c_str(), String(_ctSensors[i].getCounterUpdated()).c_str(), true); //USING RETAIN
         }
       }
     }
@@ -122,7 +122,7 @@ void WebCTSensors::PublishTick()
 
 //------------------------------------------
 //Used to initialize configuration properties to default values
-void WebCTSensors::SetConfigDefaultValues()
+void WebCTSensors::setConfigDefaultValues()
 {
   clampRatios[0] = 30.0;
   clampRatios[1] = 30.0;
@@ -144,7 +144,7 @@ void WebCTSensors::SetConfigDefaultValues()
 };
 //------------------------------------------
 //Parse JSON object into configuration properties
-void WebCTSensors::ParseConfigJSON(DynamicJsonDocument &doc)
+void WebCTSensors::parseConfigJSON(DynamicJsonDocument &doc)
 {
   if (!doc["cr1"].isNull())
     clampRatios[0] = doc["cr1"];
@@ -180,7 +180,7 @@ void WebCTSensors::ParseConfigJSON(DynamicJsonDocument &doc)
 };
 //------------------------------------------
 //Parse HTTP POST parameters in request into configuration properties
-bool WebCTSensors::ParseConfigWebRequest(AsyncWebServerRequest *request)
+bool WebCTSensors::parseConfigWebRequest(AsyncWebServerRequest *request)
 {
   if (request->hasParam(F("cr1"), true))
     clampRatios[0] = request->getParam(F("cr1"), true)->value().toFloat();
@@ -244,7 +244,7 @@ bool WebCTSensors::ParseConfigWebRequest(AsyncWebServerRequest *request)
 };
 //------------------------------------------
 //Generate JSON from configuration properties
-String WebCTSensors::GenerateConfigJSON(bool forSaveFile = false)
+String WebCTSensors::generateConfigJSON(bool forSaveFile = false)
 {
   String gc('{');
 
@@ -279,19 +279,19 @@ String WebCTSensors::GenerateConfigJSON(bool forSaveFile = false)
 };
 //------------------------------------------
 //Generate JSON of application status
-String WebCTSensors::GenerateStatusJSON()
+String WebCTSensors::generateStatusJSON()
 {
   String gs('{');
 
-  gs = gs + F("\"ci1\":") + _ctSensors[0].GetCurrentI();
-  gs = gs + F(",\"ci2\":") + _ctSensors[1].GetCurrentI();
-  gs = gs + F(",\"ci3\":") + _ctSensors[2].GetCurrentI();
-  gs = gs + F(",\"cai1\":") + _ctSensors[0].GetAverageI();
-  gs = gs + F(",\"cai2\":") + _ctSensors[1].GetAverageI();
-  gs = gs + F(",\"cai3\":") + _ctSensors[2].GetAverageI();
-  gs = gs + F(",\"c1\":") + _ctSensors[0].GetCounter();
-  gs = gs + F(",\"c2\":") + _ctSensors[1].GetCounter();
-  gs = gs + F(",\"c3\":") + _ctSensors[2].GetCounter();
+  gs = gs + F("\"ci1\":") + _ctSensors[0].getCurrentI();
+  gs = gs + F(",\"ci2\":") + _ctSensors[1].getCurrentI();
+  gs = gs + F(",\"ci3\":") + _ctSensors[2].getCurrentI();
+  gs = gs + F(",\"cai1\":") + _ctSensors[0].getAverageI();
+  gs = gs + F(",\"cai2\":") + _ctSensors[1].getAverageI();
+  gs = gs + F(",\"cai3\":") + _ctSensors[2].getAverageI();
+  gs = gs + F(",\"c1\":") + _ctSensors[0].getCounter();
+  gs = gs + F(",\"c2\":") + _ctSensors[1].getCounter();
+  gs = gs + F(",\"c3\":") + _ctSensors[2].getCounter();
 
   gs = gs + F(",\"has1\":\"");
   switch (_ha.protocol)
@@ -301,7 +301,7 @@ String WebCTSensors::GenerateStatusJSON()
     break;
   case HA_PROTO_MQTT:
     gs = gs + F("MQTT Connection State : ");
-    switch (m_mqttMan.state())
+    switch (_mqttMan.state())
     {
     case MQTT_CONNECTION_TIMEOUT:
       gs = gs + F("Timed Out");
@@ -332,7 +332,7 @@ String WebCTSensors::GenerateStatusJSON()
       break;
     }
 
-    if (m_mqttMan.state() == MQTT_CONNECTED)
+    if (_mqttMan.state() == MQTT_CONNECTED)
       gs = gs + F("\",\"has2\":\"Last Publish Result : ") + (_haSendResult ? F("OK") : F("Failed"));
 
     break;
@@ -345,13 +345,13 @@ String WebCTSensors::GenerateStatusJSON()
 };
 //------------------------------------------
 //code to execute during initialization and reinitialization of the app
-bool WebCTSensors::AppInit(bool reInit)
+bool WebCTSensors::appInit(bool reInit)
 {
   //Stop Publish
   _publishTicker.detach();
 
   //Stop MQTT
-  m_mqttMan.disconnect();
+  _mqttMan.disconnect();
 
   //if MQTT used so configure it
   if (_ha.protocol == HA_PROTO_MQTT)
@@ -362,18 +362,18 @@ bool WebCTSensors::AppInit(bool reInit)
     willTopic += F("connected");
 
     //setup MQTT
-    m_mqttMan.setClient(_wifiClient).setServer(_ha.hostname, _ha.mqtt.port);
-    m_mqttMan.setConnectedAndWillTopic(willTopic.c_str());
-    m_mqttMan.setConnectedCallback(std::bind(&WebCTSensors::MqttConnectedCallback, this, std::placeholders::_1, std::placeholders::_2));
-    m_mqttMan.setCallback(std::bind(&WebCTSensors::MqttCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    _mqttMan.setClient(_wifiClient).setServer(_ha.hostname, _ha.mqtt.port);
+    _mqttMan.setConnectedAndWillTopic(willTopic.c_str());
+    _mqttMan.setConnectedCallback(std::bind(&WebCTSensors::mqttConnectedCallback, this, std::placeholders::_1, std::placeholders::_2));
+    _mqttMan.setCallback(std::bind(&WebCTSensors::mqttCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
     //Connect
-    m_mqttMan.connect(_ha.mqtt.username, _ha.mqtt.password);
+    _mqttMan.connect(_ha.mqtt.username, _ha.mqtt.password);
   }
 
   if (reInit)
     for (byte i = 0; i < NUMBER_OF_CTSENSOR; i++)
-      _ctSensors[i].Reset();
+      _ctSensors[i].reset();
 
   //if HA and upload period != 0, then start ticker
   if (_ha.protocol != HA_PROTO_DISABLED && _ha.uploadPeriod != 0)
@@ -387,7 +387,7 @@ bool WebCTSensors::AppInit(bool reInit)
 };
 //------------------------------------------
 //Return HTML Code to insert into Status Web page
-const uint8_t *WebCTSensors::GetHTMLContent(WebPageForPlaceHolder wp)
+const uint8_t *WebCTSensors::getHTMLContent(WebPageForPlaceHolder wp)
 {
   switch (wp)
   {
@@ -404,7 +404,7 @@ const uint8_t *WebCTSensors::GetHTMLContent(WebPageForPlaceHolder wp)
   return nullptr;
 };
 //and his Size
-size_t WebCTSensors::GetHTMLContentSize(WebPageForPlaceHolder wp)
+size_t WebCTSensors::getHTMLContentSize(WebPageForPlaceHolder wp)
 {
   switch (wp)
   {
@@ -422,13 +422,13 @@ size_t WebCTSensors::GetHTMLContentSize(WebPageForPlaceHolder wp)
 };
 //------------------------------------------
 //code to register web request answer to the web server
-void WebCTSensors::AppInitWebServer(AsyncWebServer &server, bool &shouldReboot, bool &pauseApplication){
+void WebCTSensors::appInitWebServer(AsyncWebServer &server, bool &shouldReboot, bool &pauseApplication){
     //Nothing to do
 };
 
 //------------------------------------------
 //Run for timer
-void WebCTSensors::AppRun()
+void WebCTSensors::appRun()
 {
   //if we receive data from ATTiny
   if (Serial.available())
@@ -454,7 +454,7 @@ void WebCTSensors::AppRun()
       newI -= noiseCancellation[i];
       if (newI <= 0.0)
         newI = 0.0;
-      _ctSensors[i].NewIFromCTSensor(newI);
+      _ctSensors[i].newIFromCTSensor(newI);
       _serialBuffer[0] = 0;
     }
     //else we need to put this char in _serialBuffer
@@ -466,13 +466,13 @@ void WebCTSensors::AppRun()
   }
 
   if (_ha.protocol == HA_PROTO_MQTT)
-    m_mqttMan.loop();
+    _mqttMan.loop();
 
   if (_needPublish)
   {
     _needPublish = false;
     LOG_SERIAL.println(F("PublishTick"));
-    PublishTick();
+    publishTick();
   }
 }
 
